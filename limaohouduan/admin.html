@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; }
+    .login-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-card { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); width: 380px; }
+    .login-card h2 { text-align: center; margin-bottom: 24px; color: #1d2129; }
+    .login-card input { width: 100%; padding: 12px; border: 1px solid #e5e6eb; border-radius: 6px; margin-bottom: 12px; font-size: 14px; }
+    .login-card button { width: 100%; padding: 12px; background: #165dff; color: #fff; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+    .login-card button:hover { background: #1448c4; }
+    .dashboard { display: flex; min-height: 100vh; }
+    .sidebar { width: 200px; background: #1d2129; color: #fff; padding: 20px 0; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+    .sidebar h3 { padding: 0 20px 20px; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+    .sidebar a { display: block; padding: 12px 20px; color: rgba(255,255,255,0.7); text-decoration: none; cursor: pointer; }
+    .sidebar a:hover, .sidebar a.active { background: rgba(255,255,255,0.1); color: #fff; }
+    .sidebar a.logout { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); color: #f53f3f; }
+    .main { flex: 1; padding: 24px; overflow-y: auto; }
+    .main h2 { margin-bottom: 20px; color: #1d2129; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .stat-card .num { font-size: 28px; font-weight: 600; color: #165dff; }
+    .stat-card .label { color: #86909c; font-size: 14px; margin-top: 4px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 20px; margin-bottom: 16px; }
+    .card h3 { margin-bottom: 16px; color: #1d2129; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    th { color: #86909c; font-weight: 500; }
+    .btn { padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    .btn-danger { background: #f53f3f; color: #fff; }
+    .btn-primary { background: #165dff; color: #fff; }
+    .btn-success { background: #00b42a; color: #fff; }
+    .btn-edit { background: #ff7d00; color: #fff; }
+    input[type="text"], input[type="url"], textarea, select { width: 100%; padding: 10px; border: 1px solid #e5e6eb; border-radius: 6px; margin-bottom: 10px; font-size: 14px; }
+    textarea { min-height: 150px; resize: vertical; }
+    .link-group { margin-bottom: 16px; }
+    .link-group label { display: block; font-size: 13px; color: #86909c; margin-bottom: 4px; }
+    .link-group a { font-size: 12px; color: #165dff; text-decoration: none; }
+    .link-group a:hover { text-decoration: underline; }
+    .image-preview { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .image-preview .img-item { position: relative; }
+    .image-preview img { width: 100px; height: 100px; object-fit: cover; border-radius: 4px; }
+    .image-preview .remove-img { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; background: rgba(0,0,0,0.6); color: #fff; border: none; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+    .upload-btn { display: inline-block; padding: 8px 16px; background: #165dff; color: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .upload-btn input { display: none; }
+    .hidden { display: none; }
+    .empty { text-align: center; color: #86909c; padding: 40px; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    .tag-blue { background: #e8f3ff; color: #165dff; }
+    .tag-green { background: #e8ffea; color: #00b42a; }
+    .tag-orange { background: #fff3e8; color: #ff7d00; }
+    .actions { display: flex; gap: 8px; }
+    .comment-detail-card { background: #fafbfc; border: 1px solid #f0f0f0; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .comment-detail-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .comment-detail-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid #f0f0f0; }
+    .comment-detail-avatar-initial { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #409eff, #337ecc); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+    .comment-detail-user { display: flex; flex-direction: column; gap: 2px; }
+    .comment-detail-nickname { font-size: 14px; font-weight: 600; color: #1d2129; }
+    .comment-detail-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #86909c; }
+    .comment-detail-ip { display: inline-flex; align-items: center; gap: 2px; color: #b0b8c4; }
+    .comment-detail-content { font-size: 14px; color: #4e5969; line-height: 1.8; margin-bottom: 10px; word-break: break-word; white-space: pre-wrap; }
+    .comment-detail-images { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .comment-detail-images img { width: 100px; height: 100px; object-fit: cover; border-radius: 6px; border: 1px solid #f0f0f0; cursor: pointer; transition: transform 0.2s; }
+    .comment-detail-images img:hover { transform: scale(1.05); }
+    .comment-detail-links { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .comment-detail-link { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: #e8f3ff; color: #165dff; border-radius: 4px; font-size: 12px; text-decoration: none; transition: background 0.2s; }
+    .comment-detail-link:hover { background: #d0e5ff; text-decoration: none; }
+    .comment-detail-footer { display: flex; align-items: center; justify-content: space-between; }
+    .comment-detail-post { font-size: 12px; color: #86909c; }
+    .comment-detail-post a { color: #165dff; text-decoration: none; }
+    .comment-detail-post a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="login-page" id="loginView">
+      <div class="login-card">
+        <h2>管理后台</h2>
+        <input type="email" id="loginEmail" placeholder="管理员邮箱" />
+        <input type="password" id="loginPassword" placeholder="密码" />
+        <button onclick="doLogin()">登录</button>
+        <p id="loginMsg" style="color:#f53f3f;font-size:13px;margin-top:12px;text-align:center;"></p>
+      </div>
+    </div>
+
+    <div class="dashboard hidden" id="dashboardView">
+      <div class="sidebar">
+        <h3>管理后台</h3>
+        <a class="active" onclick="showTab('ai-stats')">AI使用统计</a>
+        <a onclick="showTab('review')">审核管理</a>
+        <a onclick="showTab('notifications')">通知管理</a>
+        <a onclick="showTab('publish')">发布帖子</a>
+        <a onclick="showTab('files')">文件管理</a>
+        <a onclick="showTab('comments')">评论管理</a>
+        <a onclick="showTab('posts')">帖子管理</a>
+        <a onclick="showTab('products')">商品管理</a>
+        <a onclick="showTab('orders')">订单管理</a>
+        <a onclick="showTab('users')">用户管理</a>
+        <a onclick="showTab('agreements')">协议管理</a>
+        <a class="logout" onclick="doLogout()">退出登录</a>
+      </div>
+      <div class="main" id="mainContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api';
+    let token = localStorage.getItem('adminToken');
+    let currentTab = 'ai-stats';
+    let currentImages = [];
+
+    function esc(str) {
+      if (str == null) return '';
+      const d = document.createElement('div');
+      d.innerText = String(str);
+      return d.innerHTML;
+    }
+
+    let CATEGORIES = [];
+    let SOURCE_LINKS = [];
+
+    async function loadConfig() {
+      try {
+        const res = await fetch(API + '/forum/config');
+        const data = await res.json();
+        if (data.success) {
+          CATEGORIES = data.config.CATEGORIES;
+          SOURCE_LINKS = data.config.SOURCE_LINKS;
+        }
+      } catch (e) {
+        console.error('加载配置失败', e);
+      }
+    }
+
+    function headers() {
+      return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(API + path, { ...opts, headers: { ...headers(), ...opts.headers } });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('非JSON响应:', res.status, text.substring(0, 200));
+        throw new Error('服务器返回错误 (HTTP ' + res.status + ')');
+      }
+      const data = await res.json();
+      if (!res.ok || data.success === false) throw new Error(data.message || '请求失败');
+      return data;
+    }
+
+    function categoryOptions(selected) {
+      return CATEGORIES.map(c => '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>').join('');
+    }
+
+    const SOURCE_LINK_META = {
+      github: { label: 'GitHub', placeholder: 'https://github.com/...' },
+      gitee: { label: 'Gitee', placeholder: 'https://gitee.com/...' },
+      aliyun: { label: '阿里云盘', placeholder: 'https://www.aliyundrive.com/...' },
+      baidu: { label: '百度网盘', placeholder: 'https://pan.baidu.com/...' },
+      tencent: { label: '腾讯微云', placeholder: 'https://www.weiyun.com/...' },
+      local: { label: '本站下载', placeholder: '上传文件或.zip压缩包' }
+    };
+
+    function sourceLinkFields(prefix, values) {
+      return SOURCE_LINKS.map(key => {
+        const meta = SOURCE_LINK_META[key] || { label: key, placeholder: '' };
+        const val = values ? (values['source_link_' + key] || '') : '';
+        if (key === 'local') {
+          return '<div class="link-group"><label>' + meta.label + '</label>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px;">' +
+              '<label class="upload-btn" style="background:#67c23a;">📄 上传文件 <input type="file" onchange="uploadLocalFile(event,\'' + prefix + '\')" /></label>' +
+              '<label class="upload-btn" style="background:#e6a23c;">📦 上传文件夹(.zip) <input type="file" accept=".zip" onchange="uploadLocalFolder(event,\'' + prefix + '\')" /></label>' +
+              '<span id="' + prefix + 'LocalStatus" style="font-size:12px;color:#86909c;"></span>' +
+            '</div>' +
+            '<input type="hidden" id="' + prefix + 'Local" value="' + val + '" />' +
+            '<div id="' + prefix + 'LocalPreview" style="margin-top:4px;font-size:12px;color:#67c23a;">' + (val ? '✅ ' + esc(val) : '') + '</div>' +
+            '</div>';
+        }
+        return '<div class="link-group"><label>' + meta.label + '</label><input type="url" id="' + prefix + capitalize(key) + '" value="' + val + '" placeholder="' + meta.placeholder + '" /></div>';
+      }).join('');
+    }
+
+    function getSourceLinkValues(prefix) {
+      const result = {};
+      SOURCE_LINKS.forEach(key => {
+        const el = document.getElementById(prefix + capitalize(key));
+        result['source_link_' + key] = el ? (el.value.trim() || null) : null;
+      });
+      return result;
+    }
+
+    function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    function renderImagePreview(containerId) {
+      document.getElementById(containerId).innerHTML = currentImages.map((u, i) =>
+        '<div class="img-item"><img src="' + u + '" /><button class="remove-img" onclick="removeImage(\'' + containerId + '\',' + i + ')">×</button></div>'
+      ).join('');
+    }
+
+    function removeImage(containerId, idx) {
+      currentImages.splice(idx, 1);
+      renderImagePreview(containerId);
+    }
+
+    async function uploadImages(e, containerId) {
+      const files = e.target.files;
+      if (!files.length) return;
+      const formData = new FormData();
+      for (let f of files) formData.append('images', f);
+      const res = await fetch(API + '/forum/posts/upload', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: formData });
+      const data = await res.json();
+      if (data.success) {
+        currentImages = [...currentImages, ...data.urls];
+        renderImagePreview(containerId);
+      }
+    }
+
+    async function uploadLocalFile(e, prefix) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById(prefix + 'LocalStatus');
+      const hiddenEl = document.getElementById(prefix + 'Local');
+      const previewEl = document.getElementById(prefix + 'LocalPreview');
+      statusEl.textContent = '上传中...';
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(API + '/forum/local/upload', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+        const data = await res.json();
+        if (data.success) {
+          hiddenEl.value = data.url;
+          previewEl.innerHTML = '✅ 已上传: ' + esc(file.name);
+          statusEl.textContent = '上传成功';
+          statusEl.style.color = '#67c23a';
+        } else {
+          statusEl.textContent = data.message || '上传失败';
+          statusEl.style.color = '#f56c6c';
+        }
+      } catch (err) {
+        statusEl.textContent = '上传失败';
+        statusEl.style.color = '#f56c6c';
+      }
+    }
+
+    async function uploadLocalFolder(e, prefix) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById(prefix + 'LocalStatus');
+      const hiddenEl = document.getElementById(prefix + 'Local');
+      const previewEl = document.getElementById(prefix + 'LocalPreview');
+      statusEl.textContent = '解压中...';
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch(API + '/forum/local/upload-folder', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+        const data = await res.json();
+        if (data.success) {
+          hiddenEl.value = data.url;
+          previewEl.innerHTML = '✅ 已解压: ' + esc(data.foldername || file.name.replace('.zip',''));
+          statusEl.textContent = '解压成功';
+          statusEl.style.color = '#67c23a';
+        } else {
+          statusEl.textContent = data.message || '解压失败';
+          statusEl.style.color = '#f56c6c';
+        }
+      } catch (err) {
+        statusEl.textContent = '解压失败';
+        statusEl.style.color = '#f56c6c';
+      }
+    }
+
+    function showLogin() {
+      document.getElementById('loginView').classList.remove('hidden');
+      document.getElementById('dashboardView').classList.add('hidden');
+    }
+
+    function showDashboard() {
+      document.getElementById('loginView').classList.add('hidden');
+      document.getElementById('dashboardView').classList.remove('hidden');
+      showTab(currentTab);
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      msg.textContent = '';
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!data.success) { msg.textContent = data.message; return; }
+        if (data.user.role !== 'admin') { msg.textContent = '需要管理员权限'; return; }
+        token = data.token;
+        localStorage.setItem('adminToken', token);
+        showDashboard();
+      } catch (e) {
+        msg.textContent = '登录失败，请重试';
+      }
+    }
+
+    async function saveAgreement(type) {
+      const content = document.getElementById('agreement-' + type).value.trim();
+      if (!content) return alert('协议内容不能为空');
+      try {
+        await api('/agreements/' + type, {
+          method: 'PUT',
+          body: JSON.stringify({ content })
+        });
+        alert('保存成功');
+      } catch (e) { alert('保存失败: ' + e.message); }
+    }
+
+    async function showAIStats(main) {
+      main.innerHTML = '<h2>AI使用统计</h2><p>加载中...</p>';
+      try {
+        const res = await api('/ai/usage-stats');
+        const d = res.data;
+        let html = '<h2>AI使用统计</h2>';
+
+        html += '<div class="card"><h3>📊 总览</h3>';
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
+        html += '<p><strong>总调用次数：</strong>' + d.totalCount + '</p>';
+        html += '<p><strong>总Token消耗：</strong>' + Number(d.totalTokens).toLocaleString() + '</p>';
+        html += '<p><strong>图片生成总数：</strong>' + Number(d.totalImages || 0).toLocaleString() + '</p>';
+        html += '<p><strong>图片生成用户数：</strong>' + Number(d.imageUsers || 0).toLocaleString() + '</p>';
+        html += '<p><strong>视频生成总数：</strong>' + Number(d.totalVideos || 0).toLocaleString() + '</p>';
+        html += '<p><strong>视频生成用户数：</strong>' + Number(d.videoUsers || 0).toLocaleString() + '</p>';
+        html += '<p><strong>🆓 免费调用次数：</strong>' + Number(d.freeKeyCount || 0).toLocaleString() + '</p>';
+        html += '<p><strong>🔑 自有Key调用：</strong>' + Number(d.customKeyCount || 0).toLocaleString() + '</p>';
+        html += '</div></div>';
+
+        html += '<div class="card"><h3>🔀 按模式统计</h3>';
+        html += '<table class="data-table"><thead><tr><th>模式</th><th>次数</th><th>Token</th><th>图片</th><th>视频</th></tr></thead><tbody>';
+        d.byMode.forEach(r => {
+          html += '<tr><td>' + esc(r.mode) + '</td><td>' + r.count + '</td><td>' + Number(r.total_tokens || 0).toLocaleString() + '</td><td>' + Number(r.total_images || 0).toLocaleString() + '</td><td>' + Number(r.total_videos || 0).toLocaleString() + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+
+        html += '<div class="card"><h3>👤 按用户统计</h3>';
+        html += '<table class="data-table"><thead><tr><th>用户</th><th>邮箱</th><th>次数</th><th>Token</th><th>图片</th><th>视频</th><th>🆓免费</th><th>🔑自有</th></tr></thead><tbody>';
+        d.byUser.forEach(r => {
+          html += '<tr><td>' + esc(r.name || '游客') + '</td><td>' + esc(r.email || '-') + '</td><td>' + r.count + '</td><td>' + Number(r.total_tokens || 0).toLocaleString() + '</td><td>' + Number(r.total_images || 0).toLocaleString() + '</td><td>' + Number(r.total_videos || 0).toLocaleString() + '</td><td>' + Number(r.free_key_count || 0) + '</td><td>' + Number(r.own_key_count || 0) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+
+        html += '<div class="card"><h3>🤖 按模型统计</h3>';
+        html += '<table class="data-table"><thead><tr><th>模型</th><th>次数</th><th>Token</th><th>图片</th><th>视频</th></tr></thead><tbody>';
+        d.byModel.forEach(r => {
+          html += '<tr><td>' + esc(r.model || '-') + '</td><td>' + r.count + '</td><td>' + Number(r.total_tokens || 0).toLocaleString() + '</td><td>' + Number(r.total_images || 0).toLocaleString() + '</td><td>' + Number(r.total_videos || 0).toLocaleString() + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+
+        html += '<div class="card"><h3>📅 最近30天趋势</h3>';
+        html += '<table class="data-table"><thead><tr><th>日期</th><th>次数</th><th>Token</th><th>图片</th><th>视频</th></tr></thead><tbody>';
+        d.daily.forEach(r => {
+          html += '<tr><td>' + esc(r.date) + '</td><td>' + r.count + '</td><td>' + Number(r.total_tokens || 0).toLocaleString() + '</td><td>' + Number(r.total_images || 0).toLocaleString() + '</td><td>' + Number(r.total_videos || 0).toLocaleString() + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+
+        main.innerHTML = html;
+      } catch (e) {
+        main.innerHTML = '<h2>AI使用统计</h2><p style="color:red">加载失败: ' + esc(e.message) + '</p>';
+      }
+    }
+
+    function doLogout() {
+      token = '';
+      localStorage.removeItem('adminToken');
+      showLogin();
+    }
+
+    function renderPostRow(p) {
+      const links = SOURCE_LINKS
+        .filter(l => p['source_link_' + l.key])
+        .map(l => '<a href="' + esc(p['source_link_' + l.key]) + '" target="_blank">' + esc(l.label.replace(/ .*/, '')) + '</a>')
+        .join(' ');
+      const featuredBtn = p.is_featured
+        ? '<button class="btn btn-success" data-toggle-feature="' + p.id + '" onclick="toggleFeature(' + p.id + ', 0)">⭐ 已精选</button>'
+        : '<button class="btn btn-primary" data-toggle-feature="' + p.id + '" onclick="toggleFeature(' + p.id + ', 1)">设为精选</button>';
+
+      const deletedBadge = p.is_deleted
+        ? '<span style="color:#f53f3f;background:#ffece8;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:6px;">已删除</span>'
+        : '';
+      const deletedInfo = p.is_deleted && p.deleted_at
+        ? '<div style="margin-top:2px;font-size:11px;color:#c9cdd4;">删除于 ' + new Date(p.deleted_at).toLocaleString() + '</div>'
+        : '';
+      const actionBtns = p.is_deleted
+        ? '<button class="btn btn-success" onclick="restorePost(' + p.id + ')">恢复</button>' +
+          '<button class="btn btn-danger" onclick="permanentDeletePost(' + p.id + ')">永久删除</button>'
+        : featuredBtn +
+          '<button class="btn btn-edit" onclick="editPost(' + p.id + ')">编辑</button>' +
+          '<button class="btn btn-danger" onclick="deletePost(' + p.id + ')">删除</button>';
+
+      return '<tr' + (p.is_deleted ? ' style="opacity:0.6;background:#fafbfb;"' : '') + '>' +
+        '<td><div style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + esc(p.title) + deletedBadge + '</div>' +
+        deletedInfo +
+        (p.project_name ? '<div style="margin-top:2px;font-size:12px;color:#409eff;">📁 ' + esc(p.project_name) + '</div>' : '') +
+        (links ? '<div style="margin-top:4px;">' + links + '</div>' : '') +
+        '</td>' +
+        '<td><span class="tag tag-blue">' + esc(p.category) + '</span></td>' +
+        '<td>' + (p.is_featured ? '⭐' : '') + '</td>' +
+        '<td>' + esc(p.author_name || p.author_email) + '</td>' +
+        '<td>' + p.comment_count + '</td>' +
+        '<td style="white-space:nowrap;">' + new Date(p.created_at).toLocaleString() + '</td>' +
+        '<td><div class="actions">' + actionBtns +
+        '</div></td>' +
+      '</tr>';
+    }
+
+    async function showTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+      var activeLink = document.querySelector('.sidebar a[onclick="showTab(\'' + tab + '\')"]');
+      if (activeLink) activeLink.classList.add('active');
+      const main = document.getElementById('mainContent');
+
+      if (tab === 'files') {
+        showFilesManager(main);
+      } else if (tab === 'publish') {
+        currentImages = [];
+        main.innerHTML =
+          '<h2>发布帖子</h2>' +
+          '<div class="stats">' +
+            '<div class="stat-card"><div class="num" id="statUsers">-</div><div class="label">用户数</div></div>' +
+            '<div class="stat-card"><div class="num" id="statPosts">-</div><div class="label">帖子数</div></div>' +
+            '<div class="stat-card"><div class="num" id="statComments">-</div><div class="label">评论数</div></div>' +
+          '</div>' +
+          '<div class="card">' +
+            '<input type="text" id="postTitle" placeholder="帖子标题" />' +
+            '<select id="postCategory">' + categoryOptions('小程序') + '</select>' +
+            '<input type="text" id="postProjectName" placeholder="开源项目名称（可选）" />' +
+            '<textarea id="postContent" placeholder="帖子内容"></textarea>' +
+            '<div class="link-group"><label>图片上传</label><div id="pubImagePreview" class="image-preview"></div>' +
+              '<label class="upload-btn">选择图片 <input type="file" multiple accept="image/*" onchange="uploadImages(event,\'pubImagePreview\')" /></label></div>' +
+            sourceLinkFields('link') +
+            '<br><button class="btn btn-primary" style="padding:10px 24px;" onclick="doPublish()">发布</button>' +
+          '</div>';
+        loadStats();
+      } else if (tab === 'comments') {
+        const [commentsData, reportsData] = await Promise.all([
+          api('/forum/admin/comments?showDeleted=true'),
+          api('/forum/admin/comment-reports?status=all')
+        ]);
+        const commentCards = commentsData.comments.map(c => {
+          const avatarHtml = c.user_avatar
+            ? '<img class="comment-detail-avatar" src="' + esc(c.user_avatar) + '" />'
+            : '<span class="comment-detail-avatar-initial">' + esc((c.user_nickname || 'U').charAt(0).toUpperCase()) + '</span>';
+          const imagesHtml = (c.images && c.images.length > 0)
+            ? '<div class="comment-detail-images">' + c.images.map(img => '<img src="' + esc(img) + '" onclick="window.open(\'' + esc(img) + '\',\'_blank\')" />').join('') + '</div>'
+            : '';
+          const links = SOURCE_LINKS
+            .filter(key => c['source_link_' + key])
+            .map(key => {
+              const meta = SOURCE_LINK_META[key] || { label: key };
+              return '<a class="comment-detail-link" href="' + esc(c['source_link_' + key]) + '" target="_blank">🔗 ' + esc(meta.label) + '</a>';
+            }).join('');
+          const linksHtml = links ? '<div class="comment-detail-links">' + links + '</div>' : '';
+          const ipHtml = c.ip_region ? '<span class="comment-detail-ip">📍 ' + esc(c.ip_region) + '</span>' : '';
+          const deletedBadge = c.is_deleted ? '<span style="color:#f53f3f;background:#ffece8;padding:1px 6px;border-radius:3px;font-size:11px;margin-left:6px;">已删除</span>' : '';
+          const deletedInfo = c.is_deleted && c.deleted_at ? '<span style="color:#c9cdd4;font-size:12px;">删除于 ' + new Date(c.deleted_at).toLocaleString() + '</span>' : '';
+          const actionBtns = c.is_deleted
+            ? '<button class="btn btn-success" onclick="restoreComment(' + c.id + ')">恢复</button>' +
+              '<button class="btn btn-danger" onclick="permanentDeleteComment(' + c.id + ')">永久删除</button>'
+            : '<button class="btn btn-danger" onclick="deleteComment(' + c.id + ')">删除</button>';
+          return '<div class="comment-detail-card"' + (c.is_deleted ? ' style="opacity:0.6;border-left:3px solid #f53f3f;"' : '') + '>' +
+            '<div class="comment-detail-header">' +
+              avatarHtml +
+              '<div class="comment-detail-user">' +
+                '<span class="comment-detail-nickname">' + esc(c.user_nickname || c.user_email) + deletedBadge + '</span>' +
+                '<div class="comment-detail-meta">' +
+                  '<span>' + esc(c.user_email) + '</span>' +
+                  ipHtml +
+                  '<span>' + new Date(c.created_at).toLocaleString() + '</span>' +
+                  deletedInfo +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="comment-detail-content"' + (c.is_deleted ? ' style="color:#c9cdd4;text-decoration:line-through;"' : '') + '>' + esc(c.content) + '</div>' +
+            imagesHtml +
+            linksHtml +
+            '<div class="comment-detail-footer">' +
+              '<span class="comment-detail-post">帖子: <a href="/admin" onclick="showTab(\'posts\');return false;">' + esc(c.post_title) + '</a></span>' +
+              actionBtns +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        let reportsHtml = '';
+        if (reportsData.reports && reportsData.reports.length > 0) {
+          reportsHtml = '<div class="card"><h3>🚩 举报记录 (' + reportsData.total + ')</h3>';
+          reportsHtml += '<div style="margin-bottom:12px;display:flex;gap:8px;">';
+          reportsHtml += '<button class="btn ' + ('all' === 'all' ? 'btn-primary' : '') + '" onclick="loadCommentReports(\'all\')">全部</button>';
+          reportsHtml += '<button class="btn btn-danger" onclick="loadCommentReports(\'pending\')">待处理 (' + (reportsData.reports.filter(r => r.status === 'pending').length || 0) + ')</button>';
+          reportsHtml += '<button class="btn btn-success" onclick="loadCommentReports(\'processed\')">已处理</button>';
+          reportsHtml += '<button class="btn" style="background:#86909c;color:#fff;" onclick="loadCommentReports(\'dismissed\')">已忽略</button>';
+          reportsHtml += '</div>';
+          reportsHtml += '<div id="commentReportsList">';
+          reportsHtml += reportsData.reports.map(r => {
+            const statusTagClass = r.status === 'pending' ? 'tag-orange' : (r.status === 'processed' ? 'tag-green' : '');
+            return '<div class="comment-detail-card" style="border-left:3px solid ' + (r.status === 'pending' ? '#ff7d00' : (r.status === 'processed' ? '#00b42a' : '#86909c')) + ';">' +
+              '<div class="comment-detail-header">' +
+                '<span class="comment-detail-avatar-initial" style="background:linear-gradient(135deg,#ff7d00,#d46b00);font-size:12px;">🚩</span>' +
+                '<div class="comment-detail-user">' +
+                  '<span class="comment-detail-nickname">举报原因: ' + esc(r.reason_label) + ' <span class="tag ' + statusTagClass + '">' + esc(r.status_label) + '</span></span>' +
+                  '<div class="comment-detail-meta">' +
+                    '<span>举报人: ' + esc(r.reporter_nickname || r.reporter_email) + '</span>' +
+                    '<span>评论作者: ' + esc(r.comment_author_nickname || r.comment_author_email) + '</span>' +
+                    '<span>' + new Date(r.created_at).toLocaleString() + '</span>' +
+                  '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="comment-detail-content" style="background:#fff;padding:10px;border-radius:6px;margin:8px 0;' + (r.comment_is_deleted ? 'color:#c9cdd4;text-decoration:line-through;' : '') + '">' +
+                (r.comment_is_deleted ? '[评论已删除] ' : '') + esc(r.comment_content || '') +
+              '</div>' +
+              (r.detail ? '<div style="font-size:12px;color:#86909c;margin-bottom:8px;padding:8px;background:#fafbfc;border-radius:4px;">补充说明: ' + esc(r.detail) + '</div>' : '') +
+              '<div class="comment-detail-footer">' +
+                '<span class="comment-detail-post">帖子: <a href="/admin" onclick="showTab(\'posts\');return false;">' + esc(r.post_title) + '</a></span>' +
+                (r.status === 'pending' ? '<div class="actions">' +
+                  '<button class="btn btn-danger" onclick="processReport(' + r.id + ',\'delete_comment\')">删除评论</button>' +
+                  '<button class="btn btn-success" onclick="processReport(' + r.id + ',\'processed\')">标记已处理</button>' +
+                  '<button class="btn" style="background:#86909c;color:#fff;" onclick="processReport(' + r.id + ',\'dismiss\')">忽略</button>' +
+                '</div>' : '') +
+              '</div>' +
+            '</div>';
+          }).join('');
+          reportsHtml += '</div></div>';
+        }
+
+        main.innerHTML =
+          '<h2>评论管理</h2>' +
+          reportsHtml +
+          '<div class="card"><h3>💬 所有评论 (' + commentsData.comments.length + ')</h3>' +
+          (commentsData.comments.length === 0 ? '<div class="empty">暂无评论</div>' : commentCards) +
+          '</div>';
+      } else if (tab === 'posts') {
+        const data = await api('/forum/posts?pageSize=100&showDeleted=true');
+        main.innerHTML =
+          '<h2>帖子管理</h2><div class="card"><table>' +
+          '<thead><tr><th>标题 / 链接</th><th>分类</th><th>精选</th><th>作者</th><th>评论</th><th>时间</th><th>操作</th></tr></thead><tbody>' +
+          (data.posts.length === 0 ? '<tr><td colspan="8" class="empty">暂无帖子</td></tr>' :
+            data.posts.map(p => renderPostRow(p)).join('')) +
+          '</tbody></table></div>';
+      } else if (tab === 'users') {
+        const data = await api('/forum/admin/users');
+        main.innerHTML =
+          '<h2>用户管理</h2><div class="card"><table>' +
+          '<thead><tr><th>头像</th><th>ID</th><th>邮箱</th><th>昵称</th><th>角色</th><th>注册时间</th><th>操作</th></tr></thead><tbody>' +
+          data.users.map(u => '<tr>' +
+            '<td>' + (u.avatar ? '<img src="' + esc(u.avatar) + '" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">' : '<span style="display:inline-block;width:40px;height:40px;border-radius:50%;background:#409eff;color:#fff;text-align:center;line-height:40px;font-weight:700;">' + esc((u.nickname || u.email || '?').charAt(0).toUpperCase()) + '</span>') + '</td>' +
+            '<td>' + u.id + '</td><td>' + esc(u.email) + '</td><td>' + esc(u.nickname || '-') + '</td>' +
+            '<td><span class="tag ' + (u.role === 'admin' ? 'tag-orange' : 'tag-green') + '">' + (u.role === 'admin' ? '管理员' : '普通用户') + '</span></td>' +
+            '<td style="white-space:nowrap;">' + new Date(u.created_at).toLocaleString() + '</td>' +
+            '<td><div class="actions">' +
+              (u.role === 'user' ? '<button class="btn btn-success" onclick="setRole(' + u.id + ',\'admin\')">设为管理员</button>' :
+                '<button class="btn btn-primary" onclick="setRole(' + u.id + ',\'user\')">取消管理员</button>') +
+              '<button class="btn btn-danger" onclick="deleteUser(' + u.id + ')">删除</button>' +
+            '</div></td></tr>').join('') +
+          '</tbody></table></div>';
+      } else if (tab === 'edit') {
+        showEditPost(main);
+      } else if (tab === 'agreements') {
+        const data = await api('/agreements');
+        const types = { terms: '用户协议', privacy: '隐私政策' };
+        main.innerHTML =
+          '<h2>协议管理</h2>' +
+          data.data.map(a => {
+            const label = types[a.type] || a.title;
+            return '<div class="card">' +
+              '<h3>📄 ' + esc(label) + '</h3>' +
+              '<textarea id="agreement-' + a.type + '" style="min-height:300px;width:100%;">' + esc(a.content) + '</textarea>' +
+              '<br><button class="btn btn-primary" style="padding:10px 24px;margin-top:12px;" onclick="saveAgreement(\'' + a.type + '\')">保存 ' + esc(label) + '</button>' +
+              '</div>';
+          }).join('');
+      } else if (tab === 'ai-stats') {
+        showAIStats(main);
+      } else if (tab === 'review') {
+        showReview(main);
+      } else if (tab === 'notifications') {
+        showNotifications(main);
+      } else if (tab === 'products') {
+        showProducts(main);
+      } else if (tab === 'orders') {
+        showOrders(main);
+      }
+    }
+
+    async function loadStats() {
+      try {
+        const data = await api('/forum/admin/stats');
+        var el;
+        el = document.getElementById('statUsers'); if (el) el.textContent = data.stats.users;
+        el = document.getElementById('statPosts'); if (el) el.textContent = data.stats.posts;
+        el = document.getElementById('statComments'); if (el) el.textContent = data.stats.comments;
+      } catch {}
+    }
+
+    let currentFileDir = '';
+
+    async function showFilesManager(main) {
+      await renderFileList(main, '');
+    }
+
+    async function renderFileList(main, dir) {
+      currentFileDir = dir || '';
+      try {
+        const data = await api('/forum/admin/files?dir=' + encodeURIComponent(currentFileDir));
+        let html = '<h2>📁 文件管理</h2><div class="card">';
+        html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">';
+        html += '<label class="upload-btn" style="background:#67c23a;">📄 上传文件 <input type="file" onchange="fmUploadFile(event)" /></label>';
+        html += '<label class="upload-btn" style="background:#e6a23c;">📦 上传文件夹(.zip) <input type="file" accept=".zip" onchange="fmUploadFolder(event)" /></label>';
+        html += '<button class="btn btn-primary" style="padding:8px 16px;" onclick="renderFileList(document.getElementById(\'mainContent\'), currentFileDir)">🔄 刷新</button>';
+        html += '<span id="fmStatus" style="font-size:12px;margin-left:8px;"></span>';
+        html += '</div>';
+
+        html += '<div style="margin-bottom:8px;font-size:13px;">';
+        html += '<a href="javascript:void(0)" onclick="renderFileList(document.getElementById(\'mainContent\'), \'\')" style="color:#409eff;">🏠 根目录</a>';
+        if (currentFileDir) {
+          const parts = currentFileDir.split('/');
+          let acc = '';
+          parts.forEach((p, i) => {
+            acc += (i ? '/' : '') + p;
+            html += ' / <a href="javascript:void(0)" onclick="renderFileList(document.getElementById(\'mainContent\'), \'' + acc + '\')" style="color:#409eff;">' + esc(p) + '</a>';
+          });
+        }
+        html += '</div>';
+
+        if (!data.files.length) {
+          html += '<div class="empty">📭 目录为空</div>';
+        } else {
+          html += '<table><thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead><tbody>';
+          data.files.forEach(f => {
+            const icon = f.isDir ? '📁' : (f.ext === '.zip' ? '📦' : (f.ext === '.png' || f.ext === '.jpg' ? '🖼' : '📄'));
+            const subDir = currentFileDir ? currentFileDir + '/' + f.name : f.name;
+            const size = f.isDir ? '-' : fmFormatSize(f.size);
+            html += '<tr>';
+            html += '<td><span style="cursor:pointer;color:' + (f.isDir?'#409eff':'#1d2129') + '" onclick="' + (f.isDir? 'renderFileList(document.getElementById(\'mainContent\'), \'' + subDir + '\')' : 'window.open(\'/api/forum/uploads/local/' + subDir + '\', \'_blank\')') + '">' + icon + ' ' + esc(f.name) + '</span></td>';
+            html += '<td style="color:#909399;">' + size + '</td>';
+            html += '<td style="color:#909399;white-space:nowrap;">' + fmFormatDate(f.mtime) + '</td>';
+            html += '<td>';
+            if (f.isDir) {
+              html += '<button class="btn btn-primary" style="font-size:11px;margin-right:4px;" onclick="renderFileList(document.getElementById(\'mainContent\'), \'' + subDir + '\')">进入</button>';
+            }
+            html += '<a class="btn btn-primary" style="font-size:11px;margin-right:4px;text-decoration:none;display:inline-block;" href="/api/forum/uploads/local/' + subDir + '" download>下载</a>';
+            html += '<button class="btn btn-danger" style="font-size:11px;" onclick="fmDelete(\'' + subDir + '\')">删除</button>';
+            html += '</td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+        main.innerHTML = html;
+      } catch (e) {
+        main.innerHTML = '<h2>📁 文件管理</h2><div class="card"><p style="color:red">加载失败: ' + esc(e.message) + '</p></div>';
+      }
+    }
+
+    async function fmUploadFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('fmStatus').textContent = '上传中...';
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        const res = await fetch(API + '/forum/local/upload', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+        const data = await res.json();
+        if (data.success) { renderFileList(document.getElementById('mainContent'), currentFileDir); }
+        else alert(data.message);
+      } catch (err) { alert('上传失败'); }
+      e.target.value = '';
+    }
+
+    async function fmUploadFolder(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('fmStatus').textContent = '解压中...';
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        const res = await fetch(API + '/forum/local/upload-folder', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+        const data = await res.json();
+        if (data.success) { renderFileList(document.getElementById('mainContent'), currentFileDir); }
+        else alert(data.message);
+      } catch (err) { alert('解压失败'); }
+      e.target.value = '';
+    }
+
+    async function fmDelete(subDir) {
+      if (!confirm('确定删除 "' + subDir + '" 吗？')) return;
+      try {
+        await api('/forum/local/delete', { method: 'DELETE', body: JSON.stringify({ path: subDir }) });
+        renderFileList(document.getElementById('mainContent'), currentFileDir);
+      } catch (e) { alert('删除失败: ' + e.message); }
+    }
+
+    function fmFormatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function fmFormatDate(d) {
+      const dt = new Date(d);
+      return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0') + ' ' + String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+    }
+
+    async function deletePost(id) {
+      if (!confirm('确定删除该帖子？删除后可恢复。')) return;
+      await api('/forum/posts/' + id, { method: 'DELETE' });
+      showTab('posts');
+    }
+
+    async function restorePost(id) {
+      if (!confirm('确定恢复该帖子？')) return;
+      const res = await api('/forum/admin/posts/' + id + '/restore', { method: 'PUT' });
+      alert(res.message || '帖子已恢复');
+      showTab('posts');
+    }
+
+    async function permanentDeletePost(id) {
+      if (!confirm('⚠️ 确定永久删除该帖子？此操作不可恢复！')) return;
+      const res = await api('/forum/admin/posts/' + id + '/permanent', { method: 'DELETE' });
+      alert(res.message || '帖子已永久删除');
+      showTab('posts');
+    }
+
+    async function toggleFeature(id, featured) {
+      const featuredBtns = document.querySelectorAll('[data-toggle-feature]');
+      const btn = Array.from(featuredBtns).find(b => b.getAttribute('data-toggle-feature') == id);
+      if (!btn) return;
+      const originalText = btn.textContent;
+      const originalClass = btn.className;
+      btn.disabled = true;
+      btn.textContent = '操作中...';
+      try {
+        const res = await api('/forum/admin/posts/' + id + '/feature', { method: 'PUT', body: JSON.stringify({ is_featured: featured }) });
+        alert(res.message || '操作成功');
+        showTab('posts');
+      } catch (e) {
+        alert('操作失败: ' + e.message);
+        btn.disabled = false;
+        btn.className = originalClass;
+        btn.textContent = originalText;
+      }
+    }
+
+    async function setRole(id, role) {
+      await api('/forum/admin/users/' + id + '/role', { method: 'PUT', body: JSON.stringify({ role }) });
+      showTab('users');
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('确定删除该用户？')) return;
+      await api('/forum/admin/users/' + id, { method: 'DELETE' });
+      showTab('users');
+    }
+
+    async function deleteComment(id) {
+      if (!confirm('确定删除该评论？删除后可恢复。')) return;
+      await api('/forum/comments/' + id, { method: 'DELETE' });
+      showTab('comments');
+    }
+
+    async function showReview(main) {
+      main.innerHTML = '<h2>审核管理</h2><p>加载中...</p>';
+      try {
+        const [qaPending, qaApproved, qaRejected, agentPending, agentApproved, inviteCodes, customAiPending, customAiApproved, customAiRejected] = await Promise.all([
+          fetch(API + '/ai/qa/applications?status=pending', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/qa/applications?status=approved', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/qa/applications?status=rejected', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/agent/applications?status=pending', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/agent/applications?status=approved', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/agent/invite-codes', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/data/custom-ai/applications?status=pending', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/data/custom-ai/applications?status=approved', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] })),
+          fetch(API + '/ai/data/custom-ai/applications?status=rejected', { headers: headers() }).then(r => r.json()).catch(() => ({ data: [] }))
+        ]);
+
+        const qaP = qaPending.data || [];
+        const qaA = qaApproved.data || [];
+        const qaR = qaRejected.data || [];
+        const agP = agentPending.data || [];
+        const agA = agentApproved.data || [];
+        const invites = inviteCodes.data || [];
+        const caP = customAiPending.data || [];
+        const caA = customAiApproved.data || [];
+        const caR = customAiRejected.data || [];
+
+        const totalPending = qaP.length + agP.length + caP.length;
+
+        let html = '<h2>📋 审核管理</h2>';
+
+        html += '<div class="stats">';
+        html += '<div class="stat-card"><div class="num" style="color:#ff7d00;">' + totalPending + '</div><div class="label">待审核总数</div></div>';
+        html += '<div class="stat-card"><div class="num" style="color:#00b42a;">' + (qaA.length + agA.length + caA.length) + '</div><div class="label">已通过总数</div></div>';
+        html += '<div class="stat-card"><div class="num" style="color:#165dff;">' + invites.filter(function(ic) { return ic.is_active; }).length + '</div><div class="label">有效邀请码</div></div>';
+        html += '</div>';
+
+        html += '<div class="card"><h3>⏳ 待审核 - 自定义AI (' + caP.length + ')</h3>';
+        if (caP.length === 0) {
+          html += '<div class="empty">暂无待审核申请</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>申请时间</th><th>操作</th></tr></thead><tbody>';
+          caP.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.created_at).toLocaleString() + '</td><td><div class="actions"><button class="btn btn-success" onclick="approveCustomAi(' + a.id + ')">通过</button><button class="btn btn-danger" onclick="rejectCustomAi(' + a.id + ')">拒绝</button></div></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>⏳ 待审核 - 智能问答 (' + qaP.length + ')</h3>';
+        if (qaP.length === 0) {
+          html += '<div class="empty">暂无待审核申请</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>申请时间</th><th>操作</th></tr></thead><tbody>';
+          qaP.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.created_at).toLocaleString() + '</td><td><div class="actions"><button class="btn btn-success" onclick="approveQa(' + a.id + ')">通过</button><button class="btn btn-danger" onclick="rejectQa(' + a.id + ')">拒绝</button></div></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>⏳ 待审核 - 智能体 (' + agP.length + ')</h3>';
+        if (agP.length === 0) {
+          html += '<div class="empty">暂无待审核申请</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>时间</th><th>操作</th></tr></thead><tbody>';
+          agP.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.user_email) + '</td><td>' + esc(a.user_email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.created_at).toLocaleString() + '</td><td><input type="number" id="monthly_' + a.id + '" value="50" style="width:60px;margin:0 4px;padding:4px;" title="月配额" /><input type="number" id="total_' + a.id + '" value="200" style="width:60px;margin:0 4px;padding:4px;" title="总配额" /><button class="btn btn-success" onclick="approveAgent(' + a.id + ')">通过</button><button class="btn btn-danger" onclick="rejectAgent(' + a.id + ')" style="margin-left:4px;">拒绝</button></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>✅ 已通过 - 智能问答 (' + qaA.length + ')</h3>';
+        if (qaA.length === 0) {
+          html += '<div class="empty">暂无</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>通过时间</th><th>操作</th></tr></thead><tbody>';
+          qaA.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.reviewed_at || a.created_at).toLocaleString() + '</td><td><button class="btn btn-danger" onclick="revokeQa(' + a.id + ')" style="font-size:11px;">撤销权限</button></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>✅ 已通过 - 智能体 (' + agA.length + ')</h3>';
+        if (agA.length === 0) {
+          html += '<div class="empty">暂无</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>邀请码</th><th>月配额</th><th>总配额</th><th>批准时间</th><th>操作</th></tr></thead><tbody>';
+          agA.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.user_email) + '</td><td>' + esc(a.user_email) + '</td><td style="font-family:monospace;">' + (a.code || '-') + '</td><td>' + (a.quota_monthly || '不限') + '</td><td>' + (a.quota_total || '不限') + '</td><td>' + new Date(a.reviewed_at || a.created_at).toLocaleString() + '</td><td><button class="btn btn-danger" onclick="revokeAgent(' + a.id + ')" style="font-size:11px;">撤销</button></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>❌ 已拒绝 - 智能问答 (' + qaR.length + ')</h3>';
+        if (qaR.length === 0) {
+          html += '<div class="empty">暂无</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>拒绝时间</th></tr></thead><tbody>';
+          qaR.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.reviewed_at || a.created_at).toLocaleString() + '</td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>🔧 直接给用户开通智能体权限</h3>';
+        html += '<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
+        html += '<div><label style="font-size:12px;color:#86909c;">用户邮箱</label><input type="text" id="directEmail" placeholder="user@example.com" style="margin:0;min-width:220px;" /></div>';
+        html += '<div><label style="font-size:12px;color:#86909c;">月配额 (0=不限)</label><input type="number" id="directMonthly" value="50" style="margin:0;min-width:100px;" /></div>';
+        html += '<div><label style="font-size:12px;color:#86909c;">总配额 (0=不限)</label><input type="number" id="directTotal" value="200" style="margin:0;min-width:100px;" /></div>';
+        html += '<div><label style="font-size:12px;color:#86909c;">备注</label><input type="text" id="directNote" value="管理员直接开通" style="margin:0;min-width:150px;" /></div>';
+        html += '<button class="btn btn-primary" style="padding:10px 16px;" onclick="directOpenAgent()">生成邀请码并发送</button>';
+        html += '</div></div>';
+
+        html += '<div class="card"><h3>🎫 邀请码列表</h3>';
+        html += '<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">';
+        html += '<button class="btn btn-danger" onclick="cleanupInvites()" style="font-size:12px;padding:6px 16px;">🗑️ 清理失效邀请码</button>';
+        html += '<span style="font-size:12px;color:#86909c;">默认只显示有效邀请码</span>';
+        html += '</div>';
+        html += '<table><thead><tr><th>邀请码</th><th>创建者</th><th>月配额</th><th>总配额</th><th>已用/可用</th><th>状态</th><th>备注</th><th>时间</th><th>操作</th></tr></thead><tbody>';
+        var activeCodes = invites.filter(function(ic) {
+          var expires = ic.expires_at ? new Date(ic.expires_at) < new Date() : false;
+          return ic.is_active && !expires && (ic.max_uses <= 0 || ic.used_count < ic.max_uses);
+        });
+        if (activeCodes.length === 0) {
+          html += '<tr><td colspan="9" class="empty">暂无有效邀请码</td></tr>';
+        } else {
+          activeCodes.forEach(function(ic) {
+            html += '<tr><td style="font-family:monospace;font-size:13px;">' + esc(ic.code) + '</td><td>' + esc(ic.creator_name || '-') + '</td><td>' + (ic.quota_monthly || '不限') + '</td><td>' + (ic.quota_total || '不限') + '</td><td><span class="tag tag-blue">' + ic.used_count + '/' + (ic.max_uses || '∞') + '</span></td><td><span class="tag tag-green">有效</span></td><td>' + esc(ic.note || '-') + '</td><td>' + new Date(ic.created_at).toLocaleString() + '</td><td><button class="btn btn-danger" onclick="disableInvite(' + ic.id + ')" style="font-size:11px;">禁用</button></td></tr>';
+          });
+        }
+        html += '</tbody></table>';
+        html += '<br><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+        html += '<span style="font-size:13px;color:#86909c;">手动生成:</span>';
+        html += '<input type="number" id="genMonthly" value="50" style="width:70px;margin:0;padding:6px;" placeholder="月配额" />';
+        html += '<input type="number" id="genTotal" value="200" style="width:70px;margin:0;padding:6px;" placeholder="总配额" />';
+        html += '<input type="number" id="genMax" value="1" style="width:70px;margin:0;padding:6px;" placeholder="可用次数" />';
+        html += '<input type="text" id="genNote" value="" style="width:120px;margin:0;padding:6px;" placeholder="备注" />';
+        html += '<button class="btn btn-primary" onclick="generateInvite()">生成邀请码</button>';
+        html += '</div></div>';
+
+        html += '<div class="card"><h3>✅ 已通过 - 自定义AI (' + caA.length + ')</h3>';
+        if (caA.length === 0) {
+          html += '<div class="empty">暂无</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>通过时间</th><th>操作</th></tr></thead><tbody>';
+          caA.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.reviewed_at || a.created_at).toLocaleString() + '</td><td><button class="btn btn-danger" onclick="revokeCustomAi(' + a.id + ')" style="font-size:11px;">撤销权限</button></td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        html += '<div class="card"><h3>❌ 已拒绝 - 自定义AI (' + caR.length + ')</h3>';
+        if (caR.length === 0) {
+          html += '<div class="empty">暂无</div>';
+        } else {
+          html += '<table><thead><tr><th>用户</th><th>邮箱</th><th>申请说明</th><th>拒绝时间</th></tr></thead><tbody>';
+          caR.forEach(function(a) {
+            html += '<tr><td>' + esc(a.user_nickname || a.nickname || '-') + '</td><td>' + esc(a.user_email || a.email) + '</td><td style="max-width:200px;">' + esc(a.reason || '-') + '</td><td>' + new Date(a.reviewed_at || a.created_at).toLocaleString() + '</td></tr>';
+          });
+          html += '</tbody></table>';
+        }
+        html += '</div>';
+
+        main.innerHTML = html;
+      } catch (e) {
+        main.innerHTML = '<h2>审核管理</h2><p style="color:red">加载失败: ' + esc(e.message) + '</p>';
+      }
+    }
+
+    async function approveQa(appId) {
+      try {
+        await api('/ai/qa/approve', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        alert('已通过');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function rejectQa(appId) {
+      if (!confirm('确定拒绝该申请？')) return;
+      try {
+        await api('/ai/qa/reject', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function revokeQa(appId) {
+      if (!confirm('⚠️ 确定撤销该用户的智能问答权限？')) return;
+      try {
+        await api('/ai/qa/revoke', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        alert('已撤销');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function approveCustomAi(appId) {
+      try {
+        await api('/ai/data/custom-ai/approve', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        alert('已通过');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function rejectCustomAi(appId) {
+      if (!confirm('确定拒绝该申请？')) return;
+      try {
+        await api('/ai/data/custom-ai/reject', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function revokeCustomAi(appId) {
+      if (!confirm('⚠️ 确定撤销该用户的自定义AI权限？\n\n撤销后该用户的API Key将被清除。')) return;
+      try {
+        await api('/ai/data/custom-ai/revoke', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        alert('已撤销，该用户的API Key已清除');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function directOpenAgent() {
+      var email = document.getElementById('directEmail').value.trim();
+      var monthly = parseInt(document.getElementById('directMonthly').value) || 0;
+      var total = parseInt(document.getElementById('directTotal').value) || 0;
+      var note = document.getElementById('directNote').value.trim() || '';
+      if (!email) return alert('请输入用户邮箱');
+      try {
+        var usersRes = await api('/forum/admin/users');
+        var user = usersRes.users.find(function(u) { return u.email === email; });
+        if (!user) return alert('未找到该邮箱的用户');
+        var codeData = await api('/ai/agent/invite-codes/create', { method: 'POST', body: JSON.stringify({ quotaMonthly: monthly, quotaTotal: total, maxUses: 1, note: note }) });
+        alert('邀请码: ' + codeData.data.code + '\n\n请将此码发送给用户。用户可在 AI 页面点击智能体 → 输入邀请码进行兑换。');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function approveAgent(appId) {
+      var monthly = parseInt(document.getElementById('monthly_' + appId) ? document.getElementById('monthly_' + appId).value : 50) || 50;
+      var total = parseInt(document.getElementById('total_' + appId) ? document.getElementById('total_' + appId).value : 200) || 200;
+      try {
+        var data = await api('/ai/agent/approve', { method: 'POST', body: JSON.stringify({ applicationId: appId, quotaMonthly: monthly, quotaTotal: total, maxUses: 1 }) });
+        alert('已通过，邀请码: ' + data.data.code + '\n\n请将此码发送给用户。');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function rejectAgent(appId) {
+      if (!confirm('确定拒绝该申请？')) return;
+      try {
+        await api('/ai/agent/reject', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function revokeAgent(appId) {
+      if (!confirm('⚠️ 确定撤销该用户的智能体权限？撤销后将立即无法使用。')) return;
+      try {
+        await api('/ai/agent/revoke', { method: 'POST', body: JSON.stringify({ applicationId: appId }) });
+        alert('已撤销');
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function generateInvite() {
+      var monthly = parseInt(document.getElementById('genMonthly') ? document.getElementById('genMonthly').value : 0) || 0;
+      var total = parseInt(document.getElementById('genTotal') ? document.getElementById('genTotal').value : 0) || 0;
+      var maxUses = parseInt(document.getElementById('genMax') ? document.getElementById('genMax').value : 1) || 1;
+      var note = document.getElementById('genNote') ? document.getElementById('genNote').value.trim() : '';
+      try {
+        var data = await api('/ai/agent/invite-codes/create', { method: 'POST', body: JSON.stringify({ quotaMonthly: monthly, quotaTotal: total, maxUses: maxUses, note: note }) });
+        alert('邀请码: ' + data.data.code);
+        showTab('review');
+      } catch (e) { alert('生成失败: ' + e.message); }
+    }
+
+    async function disableInvite(id) {
+      if (!confirm('确定禁用该邀请码？')) return;
+      try {
+        await api('/ai/agent/invite-codes/' + id + '/disable', { method: 'POST' });
+        showTab('review');
+      } catch (e) { alert('操作失败: ' + e.message); }
+    }
+
+    async function cleanupInvites() {
+      if (!confirm('⚠️ 确定清理所有失效邀请码？此操作不可恢复！\n\n将删除：已禁用、已用完的邀请码。')) return;
+      try {
+        var res = await api('/ai/agent/invite-codes/cleanup', { method: 'POST' });
+        alert(res.message || '清理完成');
+        showTab('review');
+      } catch (e) { alert('清理失败: ' + e.message); }
+    }
+
+    async function showNotifications(main) {
+      main.innerHTML = '<h2>通知管理</h2><p>加载中...</p>';
+      try {
+        const res = await fetch(API + '/notifications/admin/all', { headers: headers() }).then(r => r.json());
+        const notifications = res.data || [];
+
+        let html = '<h2> 通知管理</h2>';
+
+        html += '<div class="card"><h3>️ 发送通知</h3>';
+        html += '<div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">';
+        html += '<div><label style="font-size:12px;color:#86909c;">接收用户</label><select id="notifUser" style="margin:0;min-width:200px;"><option value="">所有用户(系统通知)</option>';
+
+        const usersRes = await fetch(API + '/forum/admin/users', { headers: headers() }).then(r => r.json());
+        const users = usersRes.users || [];
+        users.forEach(function(u) {
+          html += '<option value="' + u.id + '">' + esc(u.email) + (u.nickname ? ' (' + esc(u.nickname) + ')' : '') + '</option>';
+        });
+
+        html += '</select></div>';
+        html += '<div><label style="font-size:12px;color:#86909c;">通知类型</label><select id="notifType" style="margin:0;min-width:100px;">';
+        html += '<option value="info">ℹ️ 信息</option>';
+        html += '<option value="success">✅ 成功</option>';
+        html += '<option value="warning">⚠️ 警告</option>';
+        html += '<option value="error">❌ 错误</option>';
+        html += '</select></div>';
+        html += '<div><label style="font-size:12px;color:#86909c;">分类</label><input type="text" id="notifCategory" value="system" placeholder="system" style="margin:0;min-width:100px;" /></div>';
+        html += '</div>';
+        html += '<div style="margin-top:8px;"><label style="font-size:12px;color:#86909c;">标题</label><input type="text" id="notifTitle" placeholder="通知标题" style="margin:4px 0 0;width:100%;max-width:400px;padding:6px;" /></div>';
+        html += '<div style="margin-top:4px;"><label style="font-size:12px;color:#86909c;">内容</label><textarea id="notifContent" placeholder="通知内容" style="margin:4px 0 0;width:100%;max-width:400px;padding:6px;height:80px;resize:vertical;"></textarea></div>';
+        html += '<button class="btn btn-primary" style="margin-top:10px;padding:8px 24px;" onclick="sendNotification()">发送通知</button>';
+        html += '</div>';
+
+        html += '<div class="card"><h3>📜 通知记录 (' + notifications.length + ')</h3>';
+        html += '<table><thead><tr><th>接收者</th><th>标题</th><th>内容</th><th>类型</th><th>分类</th><th>状态</th><th>时间</th><th>操作</th></tr></thead><tbody>';
+        if (notifications.length === 0) {
+          html += '<tr><td colspan="8" class="empty">暂无通知记录</td></tr>';
+        } else {
+          notifications.forEach(function(n) {
+            const typeIcons = { info: 'ℹ️', success: '✅', warning: '⚠️', error: '❌' };
+            const typeName = { info: '信息', success: '成功', warning: '警告', error: '错误' };
+            const recipient = n.nickname || n.email || '<span style="color:#86909c;">所有用户</span>';
+            const statusTag = n.is_read
+              ? '<span class="tag tag-green">已读</span>'
+              : '<span class="tag tag-orange">未读</span>';
+            html += '<tr>';
+            html += '<td>' + recipient + '</td>';
+            html += '<td>' + esc(n.title) + '</td>';
+            html += '<td style="max-width:200px;">' + esc(n.content) + '</td>';
+            html += '<td>' + (typeIcons[n.type] || 'ℹ️') + ' ' + (typeName[n.type] || n.type) + '</td>';
+            html += '<td><span class="tag tag-blue">' + esc(n.category || 'system') + '</span></td>';
+            html += '<td>' + statusTag + '</td>';
+            html += '<td>' + new Date(n.created_at).toLocaleString() + '</td>';
+            html += '<td><button class="btn btn-danger" onclick="deleteNotification(' + n.id + ')" style="font-size:11px;">删除</button></td>';
+            html += '</tr>';
+          });
+        }
+        html += '</tbody></table></div>';
+
+        main.innerHTML = html;
+      } catch (e) {
+        main.innerHTML = '<h2>通知管理</h2><p style="color:red">加载失败: ' + esc(e.message) + '</p>';
+      }
+    }
+
+    async function sendNotification() {
+      var userId = document.getElementById('notifUser').value;
+      var title = document.getElementById('notifTitle').value.trim();
+      var content = document.getElementById('notifContent').value.trim();
+      var type = document.getElementById('notifType').value;
+      var category = document.getElementById('notifCategory').value.trim() || 'system';
+
+      if (!title || !content) return alert('标题和内容不能为空');
+
+      try {
+        await api('/notifications', {
+          method: 'POST',
+          body: JSON.stringify({
+            user_id: userId ? parseInt(userId) : null,
+            title: title,
+            content: content,
+            type: type,
+            category: category
+          })
+        });
+        alert('通知已发送');
+        showTab('notifications');
+      } catch (e) {
+        alert('发送失败: ' + e.message);
+      }
+    }
+
+    async function deleteNotification(id) {
+      if (!confirm('确定删除该通知？')) return;
+      try {
+        await api('/notifications/admin/' + id, { method: 'DELETE' });
+        showTab('notifications');
+      } catch (e) {
+        alert('删除失败: ' + e.message);
+      }
+    }
+
+    async function restoreComment(id) {
+      if (!confirm('确定恢复该评论？')) return;
+      const res = await api('/forum/admin/comments/' + id + '/restore', { method: 'PUT' });
+      alert(res.message || '评论已恢复');
+      showTab('comments');
+    }
+
+    async function permanentDeleteComment(id) {
+      if (!confirm('⚠️ 确定永久删除该评论？此操作不可恢复！')) return;
+      const res = await api('/forum/admin/comments/' + id + '/permanent', { method: 'DELETE' });
+      alert(res.message || '评论已永久删除');
+      showTab('comments');
+    }
+
+    async function loadCommentReports(status) {
+      try {
+        const reportsData = await api('/forum/admin/comment-reports?status=' + status);
+        const reportsList = document.getElementById('commentReportsList');
+        if (!reportsList) return;
+
+        if (!reportsData.reports || reportsData.reports.length === 0) {
+          reportsList.innerHTML = '<div class="empty">暂无举报记录</div>';
+          return;
+        }
+
+        reportsList.innerHTML = reportsData.reports.map(r => {
+          const statusTagClass = r.status === 'pending' ? 'tag-orange' : (r.status === 'processed' ? 'tag-green' : '');
+          return '<div class="comment-detail-card" style="border-left:3px solid ' + (r.status === 'pending' ? '#ff7d00' : (r.status === 'processed' ? '#00b42a' : '#86909c')) + ';">' +
+            '<div class="comment-detail-header">' +
+              '<span class="comment-detail-avatar-initial" style="background:linear-gradient(135deg,#ff7d00,#d46b00);font-size:12px;">🚩</span>' +
+              '<div class="comment-detail-user">' +
+                '<span class="comment-detail-nickname">举报原因: ' + esc(r.reason_label) + ' <span class="tag ' + statusTagClass + '">' + esc(r.status_label) + '</span></span>' +
+                '<div class="comment-detail-meta">' +
+                  '<span>举报人: ' + esc(r.reporter_nickname || r.reporter_email) + '</span>' +
+                  '<span>评论作者: ' + esc(r.comment_author_nickname || r.comment_author_email) + '</span>' +
+                  '<span>' + new Date(r.created_at).toLocaleString() + '</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="comment-detail-content" style="background:#fff;padding:10px;border-radius:6px;margin:8px 0;' + (r.comment_is_deleted ? 'color:#c9cdd4;text-decoration:line-through;' : '') + '">' +
+              (r.comment_is_deleted ? '[评论已删除] ' : '') + esc(r.comment_content || '') +
+            '</div>' +
+            (r.detail ? '<div style="font-size:12px;color:#86909c;margin-bottom:8px;padding:8px;background:#fafbfc;border-radius:4px;">补充说明: ' + esc(r.detail) + '</div>' : '') +
+            '<div class="comment-detail-footer">' +
+              '<span class="comment-detail-post">帖子: <a href="/admin" onclick="showTab(\'posts\');return false;">' + esc(r.post_title) + '</a></span>' +
+              (r.status === 'pending' ? '<div class="actions">' +
+                '<button class="btn btn-danger" onclick="processReport(' + r.id + ',\'delete_comment\')">删除评论</button>' +
+                '<button class="btn btn-success" onclick="processReport(' + r.id + ',\'processed\')">标记已处理</button>' +
+                '<button class="btn" style="background:#86909c;color:#fff;" onclick="processReport(' + r.id + ',\'dismiss\')">忽略</button>' +
+              '</div>' : '') +
+            '</div>' +
+          '</div>';
+        }).join('');
+      } catch (e) {
+        console.error('加载举报记录失败:', e);
+      }
+    }
+
+    async function processReport(reportId, action) {
+      const actionLabels = {
+        'delete_comment': '删除该评论',
+        'processed': '标记为已处理（保留评论）',
+        'dismiss': '忽略此举报'
+      };
+      if (!confirm('确定' + (actionLabels[action] || '执行此操作') + '？')) return;
+
+      try {
+        const res = await api('/forum/admin/comment-reports/' + reportId + '/process', {
+          method: 'PUT',
+          body: JSON.stringify({ action })
+        });
+        alert(res.message || '处理成功');
+        showTab('comments');
+      } catch (e) {
+        alert('处理失败: ' + e.message);
+      }
+    }
+
+    async function doPublish() {
+      const title = document.getElementById('postTitle').value.trim();
+      const content = document.getElementById('postContent').value.trim();
+      if (!title) return alert('标题不能为空');
+      if (!content) return alert('内容不能为空');
+      try {
+        await api('/forum/posts', {
+          method: 'POST',
+          body: JSON.stringify({
+            title, content,
+            category: document.getElementById('postCategory').value,
+            project_name: document.getElementById('postProjectName').value.trim() || null,
+            images: currentImages,
+            ...getSourceLinkValues('link')
+          })
+        });
+        alert('发布成功');
+        showTab('posts');
+      } catch (e) { alert('发布失败: ' + e.message); }
+    }
+
+    async function editPost(id) {
+      try {
+        const res = await api('/forum/posts/' + id);
+        const post = res.post;
+        currentImages = post.images || [];
+
+        const main = document.getElementById('mainContent');
+        main.innerHTML =
+          '<h2>编辑帖子</h2><div class="card">' +
+          '<input type="text" id="editTitle" value="' + esc(post.title) + '" placeholder="标题" />' +
+          '<select id="editCategory">' + categoryOptions(post.category) + '</select>' +
+          '<input type="text" id="editProjectName" value="' + esc(post.project_name || '') + '" placeholder="开源项目名称（可选）" />' +
+          '<textarea id="editContent">' + esc(post.content) + '</textarea>' +
+          '<div class="link-group"><label>图片</label><div id="editImagePreview" class="image-preview">' +
+            currentImages.map((u, i) => '<div class="img-item"><img src="' + u + '" /><button class="remove-img" onclick="removeImage(\'editImagePreview\',' + i + ')">×</button></div>').join('') +
+          '</div><label class="upload-btn">添加图片 <input type="file" multiple accept="image/*" onchange="uploadImages(event,\'editImagePreview\')" /></label></div>' +
+          sourceLinkFields('edit', post) +
+          '<br><button class="btn btn-primary" style="padding:10px 24px;" onclick="doEdit(' + id + ')">保存</button>' +
+          '<button class="btn" style="padding:10px 24px;margin-left:8px;background:#e5e6eb;" onclick="showTab(\'posts\')">取消</button>' +
+          '</div>';
+      } catch (e) { alert('加载帖子失败: ' + e.message); }
+    }
+
+    async function doEdit(id) {
+      const title = document.getElementById('editTitle').value.trim();
+      const content = document.getElementById('editContent').value.trim();
+      if (!title) return alert('标题不能为空');
+      if (!content) return alert('内容不能为空');
+      try {
+        await api('/forum/posts/' + id, {
+          method: 'PUT',
+          body: JSON.stringify({
+            title, content,
+            category: document.getElementById('editCategory').value,
+            project_name: document.getElementById('editProjectName').value.trim() || null,
+            images: currentImages,
+            ...getSourceLinkValues('edit')
+          })
+        });
+        alert('保存成功');
+        showTab('posts');
+      } catch (e) { alert('保存失败: ' + e.message); }
+    }
+
+    async function showProducts(main) {
+      const data = await api('/products?pageSize=100');
+      const products = data.products || [];
+
+      main.innerHTML = '<h2>商品管理</h2>' +
+        '<button class="btn btn-primary" style="margin-bottom:16px;" onclick="showAddProduct()">+ 添加商品</button>' +
+        '<div class="card"><table>' +
+        '<thead><tr><th>ID</th><th>商品名</th><th>分类</th><th>类型</th><th>价格</th><th>原价</th><th>状态</th><th>操作</th></tr></thead><tbody>' +
+        (products.length === 0 ? '<tr><td colspan="8" style="text-align:center;color:#86909c;padding:20px;">暂无商品，点击上方按钮添加</td></tr>' :
+        products.map(p => '<tr>' +
+          '<td>' + p.id + '</td>' +
+          '<td>' + esc(p.name) + '</td>' +
+          '<td>' + esc(p.category) + '</td>' +
+          '<td>' + (p.product_type === 'source' ? '源码' : '定制开发') + '</td>' +
+          '<td style="color:#f53f3f;font-weight:600;">¥' + parseFloat(p.price).toFixed(2) + '</td>' +
+          '<td>' + (p.original_price ? '¥' + parseFloat(p.original_price).toFixed(2) : '-') + '</td>' +
+          '<td>' + (p.is_active ? '<span style="color:#00b42a;">上架</span>' : '<span style="color:#86909c;">下架</span>') + '</td>' +
+          '<td>' +
+            '<button class="btn" style="margin-right:4px;" onclick="showEditProduct(' + p.id + ')">编辑</button>' +
+            '<button class="btn" style="margin-right:4px;' + (p.is_active ? 'color:#ff7d00;' : 'color:#00b42a;') + '" onclick="toggleProduct(' + p.id + ',' + (p.is_active ? 0 : 1) + ')">' + (p.is_active ? '下架' : '上架') + '</button>' +
+            '<button class="btn" style="color:#f53f3f;" onclick="deleteProduct(' + p.id + ')">删除</button>' +
+          '</td>' +
+        '</tr>').join('')) +
+        '</tbody></table></div>' +
+        '<div id="productForm" style="display:none;" class="card" style="margin-top:16px;"></div>';
+    }
+
+    function showAddProduct() {
+      const form = document.getElementById('productForm');
+      form.style.display = 'block';
+      form.innerHTML = '<h3>添加商品</h3>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+        '<div><label>商品名称 *</label><input id="pf-name" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：狸猫社区源码" /></div>' +
+        '<div><label>分类</label><input id="pf-category" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：小程序、APP、网站" /></div>' +
+        '<div><label>商品类型</label><select id="pf-type" style="width:100%;padding:8px;margin-top:4px;"><option value="source">源码</option><option value="custom">定制开发</option></select></div>' +
+        '<div><label>售价 *</label><input id="pf-price" type="number" step="0.01" style="width:100%;padding:8px;margin-top:4px;" placeholder="99.00" /></div>' +
+        '<div><label>原价</label><input id="pf-oprice" type="number" step="0.01" style="width:100%;padding:8px;margin-top:4px;" placeholder="199.00" /></div>' +
+        '<div><label>演示地址</label><input id="pf-demo" style="width:100%;padding:8px;margin-top:4px;" placeholder="https://" /></div>' +
+        '<div><label>下载地址</label><input id="pf-download" style="width:100%;padding:8px;margin-top:4px;" placeholder="https://" /></div>' +
+        '<div><label>排序</label><input id="pf-sort" type="number" style="width:100%;padding:8px;margin-top:4px;" value="0" /></div>' +
+        '</div>' +
+        '<div style="margin-top:12px;"><label>描述</label><textarea id="pf-desc" rows="3" style="width:100%;padding:8px;margin-top:4px;" placeholder="商品描述"></textarea></div>' +
+        '<div style="margin-top:12px;"><label>标签（逗号分隔）</label><input id="pf-tags" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：Vue,Node.js,MySQL" /></div>' +
+        '<div style="margin-top:12px;"><button class="btn btn-primary" onclick="saveNewProduct()">保存</button> <button class="btn" onclick="document.getElementById(\'productForm\').style.display=\'none\'">取消</button></div>';
+    }
+
+    async function saveNewProduct() {
+      const name = document.getElementById('pf-name').value;
+      const price = document.getElementById('pf-price').value;
+      if (!name || !price) { alert('名称和价格必填'); return; }
+      const tagsStr = document.getElementById('pf-tags').value;
+      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+      try {
+        const res = await api('/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name, price,
+            description: document.getElementById('pf-desc').value,
+            category: document.getElementById('pf-category').value,
+            product_type: document.getElementById('pf-type').value,
+            original_price: document.getElementById('pf-oprice').value || null,
+            demo_url: document.getElementById('pf-demo').value || null,
+            download_url: document.getElementById('pf-download').value || null,
+            sort_order: parseInt(document.getElementById('pf-sort').value) || 0,
+            tags
+          })
+        });
+        if (res.success) { alert('添加成功'); showProducts(document.getElementById('mainContent')); }
+        else { alert('添加失败: ' + (res.message || '')); }
+      } catch (e) { alert('添加失败'); }
+    }
+
+    async function showEditProduct(id) {
+      const data = await api('/products/' + id);
+      if (!data.success) { alert('获取失败'); return; }
+      const p = data.product;
+      const form = document.getElementById('productForm');
+      form.style.display = 'block';
+      form.innerHTML = '<h3>编辑商品 - ' + esc(p.name) + '</h3>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+        '<div><label>商品名称</label><input id="pf-name" value="' + esc(p.name) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>分类</label><input id="pf-category" value="' + esc(p.category) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>商品类型</label><select id="pf-type" style="width:100%;padding:8px;margin-top:4px;"><option value="source"' + (p.product_type === 'source' ? ' selected' : '') + '>源码</option><option value="custom"' + (p.product_type === 'custom' ? ' selected' : '') + '>定制开发</option></select></div>' +
+        '<div><label>售价</label><input id="pf-price" type="number" step="0.01" value="' + p.price + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>原价</label><input id="pf-oprice" type="number" step="0.01" value="' + (p.original_price || '') + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>演示地址</label><input id="pf-demo" value="' + esc(p.demo_url || '') + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>下载地址</label><input id="pf-download" value="' + esc(p.download_url || '') + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>排序</label><input id="pf-sort" type="number" value="' + (p.sort_order || 0) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '</div>' +
+        '<div style="margin-top:12px;"><label>描述</label><textarea id="pf-desc" rows="3" style="width:100%;padding:8px;margin-top:4px;">' + esc(p.description || '') + '</textarea></div>' +
+        '<div style="margin-top:12px;"><label>标签（逗号分隔）</label><input id="pf-tags" value="' + esc((p.tags || []).join(', ')) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div style="margin-top:12px;"><button class="btn btn-primary" onclick="updateProduct(' + id + ')">更新</button> <button class="btn" onclick="document.getElementById(\'productForm\').style.display=\'none\'">取消</button></div>';
+    }
+
+    async function updateProduct(id) {
+      const tagsStr = document.getElementById('pf-tags').value;
+      const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(Boolean) : [];
+      try {
+        const res = await api('/products/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: document.getElementById('pf-name').value,
+            description: document.getElementById('pf-desc').value,
+            category: document.getElementById('pf-category').value,
+            product_type: document.getElementById('pf-type').value,
+            price: parseFloat(document.getElementById('pf-price').value),
+            original_price: document.getElementById('pf-oprice').value ? parseFloat(document.getElementById('pf-oprice').value) : null,
+            demo_url: document.getElementById('pf-demo').value || null,
+            download_url: document.getElementById('pf-download').value || null,
+            sort_order: parseInt(document.getElementById('pf-sort').value) || 0,
+            tags
+          })
+        });
+        if (res.success) { alert('更新成功'); showProducts(document.getElementById('mainContent')); }
+        else { alert('更新失败: ' + (res.message || '')); }
+      } catch (e) { alert('更新失败'); }
+    }
+
+    async function toggleProduct(id, active) {
+      try {
+        const res = await api('/products/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: active })
+        });
+        if (res.success) showProducts(document.getElementById('mainContent'));
+      } catch (e) { alert('操作失败'); }
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('确认删除该商品？')) return;
+      try {
+        const res = await api('/products/' + id, { method: 'DELETE' });
+        if (res.success) showProducts(document.getElementById('mainContent'));
+      } catch (e) { alert('删除失败'); }
+    }
+
+    async function showOrders(main) {
+      const data = await api('/forum/admin/orders');
+      const statusMap = { pending: '待支付', paid: '已支付', delivered: '已发货', refunded: '已退款', closed: '已关闭' };
+      const statusColor = { pending: '#ff7d00', paid: '#00b42a', delivered: '#165dff', refunded: '#f53f3f', closed: '#86909c' };
+      main.innerHTML = '<h2>订单管理</h2>' +
+        '<div class="card"><table>' +
+        '<thead><tr><th>订单号</th><th>用户</th><th>商品</th><th>类型</th><th>金额</th><th>状态</th><th>支付方式</th><th>创建时间</th><th>支付时间</th><th>操作</th></tr></thead><tbody>' +
+        (data.orders || []).map(o => '<tr>' +
+          '<td style="font-size:12px;white-space:nowrap;">' + esc(o.order_no) + '</td>' +
+          '<td>' + esc(o.user_email || o.user_nickname || o.user_id) + '</td>' +
+          '<td>' + esc(o.product_name) + '</td>' +
+          '<td>' + (o.product_type === 'source' ? '源码' : '定制') + '</td>' +
+          '<td style="font-weight:600;color:#f53f3f;">¥' + parseFloat(o.amount).toFixed(2) + '</td>' +
+          '<td><span style="color:' + (statusColor[o.status] || '#86909c') + ';font-weight:600;">' + (statusMap[o.status] || o.status) + '</span></td>' +
+          '<td>' + (o.pay_method === 'alipay_qr' ? '扫码' : o.pay_method === 'alipay_h5' ? 'H5' : '-') + '</td>' +
+          '<td style="white-space:nowrap;">' + new Date(o.created_at).toLocaleString() + '</td>' +
+          '<td style="white-space:nowrap;">' + (o.paid_at ? new Date(o.paid_at).toLocaleString() : '-') + '</td>' +
+          '<td>' + (o.status === 'paid' ? '<button class="btn btn-success" onclick="deliverOrder(\'' + esc(o.order_no) + '\')">发货</button>' : '') + '</td>' +
+        '</tr>').join('') +
+        '</tbody></table></div>';
+    }
+
+    async function deliverOrder(orderNo) {
+      if (!confirm('确认发货？')) return;
+      try {
+        const res = await api('/forum/admin/deliver-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderNo })
+        });
+        if (res.success) { alert('发货成功'); showOrders(document.getElementById('mainContent')); }
+        else { alert('发货失败: ' + (res.message || '')); }
+      } catch (e) { alert('发货失败'); }
+    }
+
+    (async function init() {
+      await loadConfig();
+      if (!token) { showLogin(); return; }
+      try {
+        const res = await api('/forum/user/info');
+        if (res.user.role !== 'admin') { token = ''; localStorage.removeItem('adminToken'); showLogin(); return; }
+        showDashboard();
+      } catch { showLogin(); }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+# 环境变量（包含数据库密码、邮箱密钥等敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 依赖
+node_modules/
+
+# 日志
+*.log
+debug-log.txt
+
+# 上传文件
+uploads/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 临时文件
+*.tmp
+*.temp
