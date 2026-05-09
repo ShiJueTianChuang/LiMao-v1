@@ -140,84 +140,6 @@ async function initDatabase() {
   } catch (e) {
     if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
   }
-  try {
-    await connection.query('ALTER TABLE comments ADD COLUMN source_link_tencent VARCHAR(500) DEFAULT NULL');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query('ALTER TABLE comments ADD COLUMN like_count INT DEFAULT 0');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS comment_likes (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      comment_id INT NOT NULL,
-      user_id INT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE KEY uk_comment_user (comment_id, user_id),
-      INDEX idx_comment_likes_comment (comment_id),
-      INDEX idx_comment_likes_user (user_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  await connection.query(`
-    CREATE TABLE IF NOT EXISTS comment_reports (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      comment_id INT NOT NULL,
-      user_id INT NOT NULL,
-      reason ENUM('harassment', 'spam', 'inappropriate', 'fake', 'copyright', 'other') NOT NULL,
-      detail TEXT,
-      status ENUM('pending', 'processed', 'dismissed') DEFAULT 'pending',
-      reviewed_at TIMESTAMP NULL DEFAULT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      INDEX idx_report_comment (comment_id),
-      INDEX idx_report_status (status)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-  `);
-
-  try {
-    await connection.query('ALTER TABLE comment_reports ADD COLUMN reviewed_at TIMESTAMP NULL DEFAULT NULL');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query('ALTER TABLE posts ADD COLUMN source_link_local VARCHAR(500) DEFAULT NULL');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query('ALTER TABLE posts ADD COLUMN like_count INT DEFAULT 0');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query('ALTER TABLE posts ADD COLUMN price DECIMAL(10,2) DEFAULT NULL');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query('ALTER TABLE posts ADD COLUMN original_price DECIMAL(10,2) DEFAULT NULL');
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
-
-  try {
-    await connection.query("ALTER TABLE posts ADD COLUMN product_type ENUM('free', 'source', 'custom') DEFAULT 'free'");
-  } catch (e) {
-    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
-  }
 
   await connection.query(`
     CREATE TABLE IF NOT EXISTS products (
@@ -355,9 +277,94 @@ async function initDatabase() {
   }
 
   try {
+    await connection.query('ALTER TABLE comments ADD COLUMN like_count INT DEFAULT 0');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS comment_likes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      comment_id INT NOT NULL,
+      user_id INT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE KEY uk_comment_user (comment_id, user_id),
+      INDEX idx_comment_likes_comment (comment_id),
+      INDEX idx_comment_likes_user (user_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  await connection.query(`
+    CREATE TABLE IF NOT EXISTS comment_reports (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      comment_id INT NOT NULL,
+      user_id INT NOT NULL,
+      reason ENUM('harassment', 'spam', 'inappropriate', 'fake', 'copyright', 'other') NOT NULL,
+      detail TEXT,
+      status ENUM('pending', 'processed', 'dismissed') DEFAULT 'pending',
+      reviewed_at TIMESTAMP NULL DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX idx_report_comment (comment_id),
+      INDEX idx_report_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  `);
+
+  try {
+    await connection.query('ALTER TABLE comment_reports ADD COLUMN reviewed_at TIMESTAMP NULL DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
     await connection.query('ALTER TABLE posts ADD COLUMN source_link_local VARCHAR(500) DEFAULT NULL');
   } catch (e) {
-    if (!e.message.includes('Duplicate column')) throw e;
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN like_count INT DEFAULT 0');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN price DECIMAL(10,2) DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN original_price DECIMAL(10,2) DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query("ALTER TABLE posts ADD COLUMN product_type ENUM('free', 'source', 'custom') DEFAULT 'free'");
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN project_category VARCHAR(50) DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN project_name VARCHAR(100) DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
+  }
+
+  try {
+    await connection.query('ALTER TABLE posts ADD COLUMN source_link_tencent VARCHAR(500) DEFAULT NULL');
+  } catch (e) {
+    if (!e.message.includes('Duplicate column') && !e.message.includes('1060')) throw e;
   }
 
   const [usersWithoutNickname] = await connection.query(

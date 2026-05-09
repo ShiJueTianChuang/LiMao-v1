@@ -781,7 +781,7 @@
         </div>
 
         <div class="sidebar-section memory-section">
-          <div class="section-title vscode-title" @click="showMemoryPanel = !showMemoryPanel" style="cursor:pointer">
+          <div class="section-title vscode-title" @click="showMemoryPanel = !showMemoryPanel; if(showMemoryPanel) loadAllMemories()" style="cursor:pointer">
             <div class="vscode-title-text" style="display:flex;align-items:center;gap:4px">
               <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" class="tree-arrow" :class="{ expanded: showMemoryPanel }"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
               <span>长久记忆</span>
@@ -797,7 +797,16 @@
             </div>
           </div>
           <div v-if="showMemoryPanel" class="memory-panel-body">
-            <div v-if="retrievedMemories.length === 0 && memoryCount === 0" class="memory-empty-sidebar">
+            <div v-if="showMemoryClearConfirm" class="mem-confirm-overlay">
+              <div class="mem-confirm-dialog">
+                <div class="mem-confirm-text">确定清空所有记忆吗？</div>
+                <div class="mem-confirm-actions">
+                  <button class="mem-btn-cancel" @click="cancelClearMemory">取消</button>
+                  <button class="mem-btn-confirm" @click="confirmClearMemory">确定</button>
+                </div>
+              </div>
+            </div>
+            <div v-if="retrievedMemories.length === 0" class="memory-empty-sidebar">
               <p>暂无记忆</p>
               <p class="memory-empty-hint">AI 会在对话过程中自动学习</p>
             </div>
@@ -810,6 +819,86 @@
                 <button @click="deleteMemoryById(mem.id)" class="memory-del-btn-sidebar" title="删除此记忆">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
+              </div>
+              <div v-if="deleteMemoryTargetId === mem.id" class="mem-confirm-overlay" @click.stop>
+                <div class="mem-confirm-dialog">
+                  <div class="mem-confirm-text">确定删除该记忆吗？</div>
+                  <div class="mem-confirm-actions">
+                    <button class="mem-btn-cancel" @click="cancelDeleteMemory">取消</button>
+                    <button class="mem-btn-confirm" @click="confirmDeleteMemory">确定</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-section local-storage-section">
+          <div class="section-title vscode-title" @click="showStoragePanel = !showStoragePanel; if(showStoragePanel) loadStorageInfo()" style="cursor:pointer">
+            <div class="vscode-title-text" style="display:flex;align-items:center;gap:4px">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" class="tree-arrow" :class="{ expanded: showStoragePanel }"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span>本地存储</span>
+              <span v-if="userFilesCount > 0" class="history-count">{{ userFilesCount }}</span>
+            </div>
+            <div class="vscode-title-actions">
+              <button class="explorer-action-btn" @click.stop="triggerFileUpload" title="上传文件">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+          <input ref="fileInputRef" type="file" multiple style="display:none" @change="handleFileUpload" />
+          <div v-if="showStoragePanel" class="storage-panel-body">
+            <div v-if="storageEstimate" class="storage-usage-bar">
+              <div class="storage-usage-fill" :style="{ width: Math.min(storageEstimate.usage / storageEstimate.quota * 100, 100) + '%' }"></div>
+              <span class="storage-usage-text">{{ storageEstimate.usageFormatted }} / {{ storageEstimate.quotaFormatted }}</span>
+            </div>
+            <div v-if="userFiles.length === 0" class="memory-empty-sidebar">
+              <p>暂无文件</p>
+              <p class="memory-empty-hint">点击 + 上传文件到本地</p>
+            </div>
+            <div v-for="f in userFiles" :key="f.id" class="storage-item-sidebar">
+              <div class="storage-item-icon">
+                <svg v-if="f.type.startsWith('image/')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                <svg v-else-if="f.type.startsWith('video/')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                <svg v-else-if="f.type.startsWith('audio/')" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+              </div>
+              <div class="storage-item-info">
+                <div class="storage-item-name" :title="f.name">{{ f.name }}</div>
+                <div class="storage-item-meta">
+                  <span>{{ f.sizeFormatted }}</span>
+                  <span>{{ new Date(f.timestamp).toLocaleDateString() }}</span>
+                </div>
+              </div>
+              <div class="storage-item-actions">
+                <button class="storage-action-btn" @click="downloadLocalFile(f.id)" title="下载">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button class="storage-action-btn storage-del-btn" @click="deleteUserFileItem(f.id)" title="删除">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div v-if="deleteFileTargetId === f.id" class="mem-confirm-overlay" @click.stop>
+                <div class="mem-confirm-dialog">
+                  <div class="mem-confirm-text">确定删除该文件吗？</div>
+                  <div class="mem-confirm-actions">
+                    <button class="mem-btn-cancel" @click="deleteFileTargetId = null">取消</button>
+                    <button class="mem-btn-confirm" @click="confirmDeleteFile">确定</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div v-if="userFiles.length > 0" class="storage-clear-all-row">
+              <button class="storage-clear-all-btn" @click="showClearFilesConfirm = true">清空所有文件</button>
+            </div>
+            <div v-if="showClearFilesConfirm" class="mem-confirm-overlay">
+              <div class="mem-confirm-dialog">
+                <div class="mem-confirm-text">确定清空所有本地文件吗？</div>
+                <div class="mem-confirm-actions">
+                  <button class="mem-btn-cancel" @click="showClearFilesConfirm = false">取消</button>
+                  <button class="mem-btn-confirm" @click="confirmClearAllFiles">确定</button>
+                </div>
               </div>
             </div>
           </div>
@@ -1401,6 +1490,7 @@ let _msgId = 0
 function msgId() { return 'msg_' + Date.now() + '_' + (++_msgId) }
 import { saveFilesBatch, saveFile as idbSaveFile, getFile, getFilesByFolder, getAllFiles, deleteFile as idbDeleteFile, deleteFilesByFolder, clearAllFiles } from '../utils/workspaceDB.js'
 import { saveMemory, searchMemories, getRecentMemories, deleteMemory, clearAllMemories, getMemoryCount, autoExtractMemoriesFromConversation } from '../utils/memoryDB.js'
+import { saveUserFile, getAllUserFiles, deleteUserFile, clearAllUserFiles, downloadUserFile, requestPersistentStorage, getStorageEstimate } from '../utils/localFileDB.js'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 const props = defineProps({
@@ -1715,10 +1805,29 @@ function saveUserPreferences() {
 
 const retrievedMemories = ref([])
 const showMemoryPanel = ref(false)
+const showMemoryClearConfirm = ref(false)
+const deleteMemoryTargetId = ref(null)
 const memoryCount = ref(0)
+
+const showStoragePanel = ref(false)
+const userFiles = ref([])
+const userFilesCount = ref(0)
+const storageEstimate = ref(null)
+const deleteFileTargetId = ref(null)
+const showClearFilesConfirm = ref(false)
+const fileInputRef = ref(null)
 
 async function refreshMemoryCount() {
   try { memoryCount.value = await getMemoryCount() } catch { memoryCount.value = 0 }
+}
+
+async function loadAllMemories() {
+  try {
+    const all = await getRecentMemories(100)
+    if (all.length > 0) {
+      retrievedMemories.value = all
+    }
+  } catch {}
 }
 refreshMemoryCount()
 
@@ -7797,22 +7906,100 @@ async function saveCurrentConversationMemory() {
 }
 
 async function deleteMemoryById(id) {
+  deleteMemoryTargetId.value = id
+}
+
+async function confirmDeleteMemory() {
+  const id = deleteMemoryTargetId.value
+  deleteMemoryTargetId.value = null
+  if (!id) return
   try {
     await deleteMemory(id)
     await refreshMemoryCount()
+    await loadAllMemories()
   } catch {}
 }
 
+function cancelDeleteMemory() {
+  deleteMemoryTargetId.value = null
+}
+
 async function clearMemoryStore() {
-  if (!confirm('确定清空所有 AI 长期记忆吗？此操作不可撤销。')) return
+  showMemoryClearConfirm.value = true
+}
+
+async function confirmClearMemory() {
+  showMemoryClearConfirm.value = false
   try {
     await clearAllMemories()
     retrievedMemories.value = []
     await refreshMemoryCount()
+    await loadAllMemories()
     editorApplyNotice.value = '所有长期记忆已清除'
     setTimeout(() => { editorApplyNotice.value = '' }, 3000)
   } catch {}
 }
+
+function cancelClearMemory() {
+  showMemoryClearConfirm.value = false
+}
+
+async function loadStorageInfo() {
+  try {
+    const files = await getAllUserFiles()
+    userFiles.value = files
+    userFilesCount.value = files.length
+    const est = await getStorageEstimate()
+    storageEstimate.value = est
+  } catch {}
+}
+
+function triggerFileUpload() {
+  if (fileInputRef.value) fileInputRef.value.click()
+}
+
+async function handleFileUpload(event) {
+  const files = event.target.files
+  if (!files || files.length === 0) return
+  for (const file of files) {
+    try {
+      await saveUserFile(file, 'upload')
+    } catch (e) {
+      console.error('保存文件失败:', e)
+    }
+  }
+  event.target.value = ''
+  await loadStorageInfo()
+  showStoragePanel.value = true
+}
+
+async function downloadLocalFile(id) {
+  try { await downloadUserFile(id) } catch (e) { console.error('下载失败:', e) }
+}
+
+function deleteUserFileItem(id) {
+  deleteFileTargetId.value = id
+}
+
+async function confirmDeleteFile() {
+  const id = deleteFileTargetId.value
+  deleteFileTargetId.value = null
+  if (!id) return
+  try {
+    await deleteUserFile(id)
+    await loadStorageInfo()
+  } catch {}
+}
+
+async function confirmClearAllFiles() {
+  showClearFilesConfirm.value = false
+  try {
+    await clearAllUserFiles()
+    await loadStorageInfo()
+  } catch {}
+}
+
+requestPersistentStorage()
 
 async function fetchAgentStatus() {
   if (!props.isLoggedIn || !props.token) return
@@ -11786,6 +11973,7 @@ defineExpose({ forceRefreshAgentStatus })
 .memory-panel-body {
   overflow-y: auto;
   max-height: 200px;
+  position: relative;
 }
 
 .memory-empty-sidebar {
@@ -11802,6 +11990,7 @@ defineExpose({ forceRefreshAgentStatus })
   border-bottom: 1px solid #f0f0f0;
   cursor: default;
   transition: background 0.1s;
+  position: relative;
 }
 .memory-item-sidebar:hover { background: #f5f5f5; }
 .memory-item-sidebar:last-child { border-bottom: none; }
@@ -11856,6 +12045,191 @@ defineExpose({ forceRefreshAgentStatus })
 }
 .memory-item-sidebar:hover .memory-del-btn-sidebar { opacity: 1; }
 .memory-del-btn-sidebar:hover { color: #f5222d; }
+
+.mem-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+}
+
+.mem-confirm-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px 28px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  text-align: center;
+  min-width: 220px;
+}
+
+.mem-confirm-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 18px;
+}
+
+.mem-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.mem-btn-cancel {
+  padding: 6px 22px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.mem-btn-cancel:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5);
+}
+
+.mem-btn-confirm {
+  padding: 6px 22px;
+  border-radius: 6px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.mem-btn-confirm:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.5);
+}
+
+.storage-panel-body {
+  position: relative;
+  padding: 6px 0;
+}
+
+.storage-usage-bar {
+  margin: 4px 10px 8px;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.storage-usage-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 10px;
+  min-width: 2px;
+  transition: width 0.3s;
+}
+
+.storage-usage-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #374151;
+  text-shadow: 0 0 4px #fff;
+}
+
+.storage-item-sidebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  position: relative;
+  transition: background 0.1s;
+}
+
+.storage-item-sidebar:hover { background: #f5f5f5; }
+.storage-item-sidebar:last-child { border-bottom: none; }
+
+.storage-item-icon {
+  flex-shrink: 0;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+}
+
+.storage-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.storage-item-name {
+  font-size: 12px;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.storage-item-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.storage-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.storage-action-btn {
+  background: none;
+  border: none;
+  padding: 3px;
+  cursor: pointer;
+  color: #9ca3af;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+
+.storage-action-btn:hover { color: #3b82f6; background: rgba(59,130,246,0.1); }
+.storage-del-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+.storage-clear-all-row {
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.storage-clear-all-btn {
+  background: none;
+  border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444;
+  font-size: 11px;
+  padding: 4px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.storage-clear-all-btn:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: transparent;
+}
 
 .attach-btn {
   width: 40px;
@@ -14985,6 +15359,13 @@ defineExpose({ forceRefreshAgentStatus })
 
 .dark-mode .memory-item-sidebar { border-bottom-color: #2a2a2a; }
 .dark-mode .memory-item-sidebar:hover { background: #222; }
+.dark-mode .mem-confirm-dialog { background: #2a2a2a; }
+.dark-mode .mem-confirm-text { color: #e0e0e0; }
+.dark-mode .storage-usage-bar { background: #333; }
+.dark-mode .storage-usage-text { color: #d4d4d4; text-shadow: none; }
+.dark-mode .storage-item-sidebar { border-bottom-color: #2a2a2a; }
+.dark-mode .storage-item-sidebar:hover { background: #222; }
+.dark-mode .storage-item-name { color: #d4d4d4; }
 .dark-mode .memory-item-topic-sidebar { color: #d4d4d4; }
 .dark-mode .memory-item-content-sidebar { color: #888; }
 .dark-mode .memory-item-score-sidebar { background: #1e293b; color: #60a5fa; }

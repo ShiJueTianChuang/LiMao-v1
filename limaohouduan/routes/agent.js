@@ -71,12 +71,12 @@ router.get('/status', authUser, async (req, res) => {
       [req.user.id]
     )
 
-    const [[{ lastStatus }]] = await pool.query(
+    const [lastApp] = await pool.query(
       `SELECT status AS lastStatus FROM agent_applications WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
       [req.user.id]
     )
 
-    res.json({ success: true, data: { hasAccess, quota, hasPending: pending.length > 0, lastStatus: lastStatus || null } })
+    res.json({ success: true, data: { hasAccess, quota, hasPending: pending.length > 0, lastStatus: lastApp.length > 0 ? lastApp[0].lastStatus : null } })
   } catch (err) {
     console.error('[Agent] 查询状态失败:', err)
     res.status(500).json({ success: false, message: '查询状态失败' })

@@ -19,7 +19,7 @@ function adminOnly(req, res, next) {
 
 router.get('/status', authUser, async (req, res) => {
   try {
-    const [[{ status: lastStatus }]] = await pool.query(
+    const [lastApp] = await pool.query(
       `SELECT status FROM qa_applications WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
       [req.user.id]
     )
@@ -37,7 +37,7 @@ router.get('/status', authUser, async (req, res) => {
     res.json({
       success: true,
       data: {
-        status: lastStatus || null,
+        status: lastApp.length > 0 ? lastApp[0].status : null,
         isApproved: Boolean(isApproved),
         hasPending: Boolean(hasPending)
       }

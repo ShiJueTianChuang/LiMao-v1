@@ -1,0 +1,38 @@
+# 依赖
+node_modules/
+
+# 环境变量（包含敏感信息）
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+
+# 上传文件
+limaohouduan/uploads/*
+!limaohouduan/uploads/.gitkeep
+
+# 支付宝密钥（敏感）
+支付宝开放平台/
+alipay_*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 构建产物
+dist/
+build/
+.cache/
+
+# 测试文件
+test-*.js

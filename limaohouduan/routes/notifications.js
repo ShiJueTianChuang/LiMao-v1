@@ -71,7 +71,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const notifId = parseInt(req.params.id);
     await pool.query(
-      `DELETE FROM notifications WHERE id = ? AND (user_id = ? OR user_id IS NULL)`,
+      `DELETE FROM notifications WHERE id = ? AND user_id = ?`,
       [notifId, userId]
     );
     res.json({ success: true, message: '通知已删除' });
@@ -100,7 +100,7 @@ router.delete('/all', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
     await pool.query(
-      `DELETE FROM notifications WHERE (user_id = ? OR user_id IS NULL)`,
+      `DELETE FROM notifications WHERE user_id = ?`,
       [userId]
     );
     res.json({ success: true, message: '所有通知已删除' });

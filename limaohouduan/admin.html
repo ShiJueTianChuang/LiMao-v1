@@ -73,6 +73,21 @@
     .comment-detail-post { font-size: 12px; color: #86909c; }
     .comment-detail-post a { color: #165dff; text-decoration: none; }
     .comment-detail-post a:hover { text-decoration: underline; }
+    /* Custom dropdown styles */
+    .custom-dropdown { position: relative; width: 100%; margin-bottom: 10px; }
+    .custom-dropdown-trigger { width: 100%; padding: 10px; border: 1px solid #e5e6eb; border-radius: 6px; font-size: 14px; cursor: pointer; background: #fff; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+    .custom-dropdown-trigger:hover { border-color: #409eff; }
+    .custom-dropdown-trigger .arrow { transition: transform 0.2s; }
+    .custom-dropdown-trigger.open .arrow { transform: rotate(180deg); }
+    .custom-dropdown-menu { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e5e6eb; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; max-height: 320px; overflow-y: auto; margin-top: 2px; }
+    .custom-dropdown-menu.open { display: block; }
+    .custom-dropdown-optgroup { padding: 8px 12px 4px; font-weight: 600; font-size: 12px; color: #86909c; text-transform: uppercase; letter-spacing: 0.5px; }
+    .custom-dropdown-option { padding: 8px 12px; font-size: 14px; cursor: pointer; }
+    .custom-dropdown-option:hover { background: #f0f8ff; color: #409eff; }
+    .custom-dropdown-option.selected { background: #e8f3ff; color: #165dff; }
+    .custom-dropdown-placeholder { padding: 8px 12px; font-size: 14px; color: #86909c; cursor: pointer; }
+    .custom-dropdown-placeholder:hover { background: #f7f8fa; }
+    .custom-dropdown-placeholder.selected { background: #e8f3ff; color: #165dff; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -108,7 +123,15 @@
   </div>
 
   <script>
-    const API = '/api';
+    // 当 admin.html 从前端 dev server (如 Vite) 或 file:// 打开时，确保请求指向后端服务
+    const API = (function(){
+      try {
+        const p = location.port || '';
+        // 如果当前不是后端端口（3000），默认请求后端的本地地址
+        if (p && p !== '3000') return 'http://localhost:3000/api';
+      } catch (e) {}
+      return '/api';
+    })();
     let token = localStorage.getItem('adminToken');
     let currentTab = 'ai-stats';
     let currentImages = [];
@@ -122,6 +145,10 @@
 
     let CATEGORIES = [];
     let SOURCE_LINKS = [];
+    let PRODUCT_CATEGORY_GROUPS = [];
+    let PRODUCT_CATEGORIES = []; // flattened list of subcategory names
+
+    const FORUM_CATEGORIES = ['小程序', '安卓', '鸿蒙', '苹果', '网址', 'AI', '文档'];
 
     async function loadConfig() {
       try {
@@ -130,6 +157,23 @@
         if (data.success) {
           CATEGORIES = data.config.CATEGORIES;
           SOURCE_LINKS = data.config.SOURCE_LINKS;
+        }
+        // 拉取产品分类分组
+        try {
+          const pc = await fetch(API + '/products/categories');
+          const pd = await pc.json();
+          if (pd && pd.success && Array.isArray(pd.categories)) {
+            PRODUCT_CATEGORY_GROUPS = pd.categories;
+            // flatten children to names
+            PRODUCT_CATEGORIES = [];
+            pd.categories.forEach(g => {
+              if (Array.isArray(g.children)) {
+                g.children.forEach(c => { if (c !== '全部') PRODUCT_CATEGORIES.push(c); });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('无法加载产品分类', e);
         }
       } catch (e) {
         console.error('加载配置失败', e);
@@ -154,8 +198,112 @@
     }
 
     function categoryOptions(selected) {
-      return CATEGORIES.map(c => '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>').join('');
+      return FORUM_CATEGORIES.map(c => '<option value="' + c + '"' + (c === selected ? ' selected' : '') + '>' + c + '</option>').join('');
     }
+
+    function isStandardProductCategory(category) {
+      return !!category && PRODUCT_CATEGORIES.includes(category);
+    }
+
+    function productCategoryOptions(selected) {
+      // 默认占位项
+      let out = '<option value=""' + (selected ? '' : ' selected') + '>请选择分类</option>';
+      if (PRODUCT_CATEGORY_GROUPS && PRODUCT_CATEGORY_GROUPS.length > 0) {
+        // 将每个分组作为 optgroup，包含其所有子分类（排除 '全部' 字样）
+        out += PRODUCT_CATEGORY_GROUPS.map(g => {
+          if (!g.children || g.children.length === 0) return '';
+          const children = g.children.filter(c => c !== '全部');
+          if (children.length === 0) return '';
+          return '<optgroup label="' + esc(g.label) + '">' + children.map(c => '<option value="' + esc(c) + '"' + (c === selected ? ' selected' : '') + '>' + esc(c) + '</option>').join('') + '</optgroup>';
+        }).join('');
+        return out;
+      }
+      // fallback flat
+      out += PRODUCT_CATEGORIES.map(c => '<option value="' + esc(c) + '"' + (c === selected ? ' selected' : '') + '>' + esc(c) + '</option>').join('');
+      return out;
+    }
+
+    // 自定义下拉框（始终向下展开）
+    let activeDropdown = null;
+    function productCategoryDropdown(selected) {
+      const id = 'pf-category';
+      const legacySelected = selected && !isStandardProductCategory(selected);
+      const selectedLabel = legacySelected ? (selected + '（旧分类）') : (selected || '请选择分类');
+      let html = '<div class="custom-dropdown" id="dd-' + id + '">';
+      html += '<div class="custom-dropdown-trigger" id="dd-trigger-' + id + '" onclick="toggleDropdown(\'' + id + '\')">';
+      html += '<span id="dd-value-' + id + '">' + esc(selectedLabel) + '</span>';
+      html += '<span class="arrow">▼</span>';
+      html += '</div>';
+      html += '<input type="hidden" id="' + id + '" value="' + esc(selected || '') + '" />';
+      html += '<div class="custom-dropdown-menu" id="dd-menu-' + id + '">';
+      // 占位选项
+      html += '<div class="custom-dropdown-placeholder' + (selected ? '' : ' selected') + '" onclick="selectDropdownOption(\'' + id + '\', \'\', \'请选择分类\')">请选择分类</div>';
+      if (legacySelected) {
+        html += '<div class="custom-dropdown-optgroup">旧分类</div>';
+        html += '<div class="custom-dropdown-option selected" onclick="selectDropdownOption(\'' + id + '\', \'' + esc(selected) + '\', \'' + esc(selected + '（旧分类）') + '\')">' + esc(selected) + '（旧分类）</div>';
+      }
+      // 分组选项
+      if (PRODUCT_CATEGORY_GROUPS && PRODUCT_CATEGORY_GROUPS.length > 0) {
+        PRODUCT_CATEGORY_GROUPS.forEach(function(g) {
+          if (!g.children || g.children.length === 0) return;
+          const children = g.children.filter(function(c) { return c !== '全部'; });
+          if (children.length === 0) return;
+          html += '<div class="custom-dropdown-optgroup">' + esc(g.label) + '</div>';
+          children.forEach(function(c) {
+            html += '<div class="custom-dropdown-option' + (c === selected ? ' selected' : '') + '" onclick="selectDropdownOption(\'' + id + '\', \'' + esc(c) + '\', \'' + esc(c) + '\')">' + esc(c) + '</div>';
+          });
+        });
+      } else {
+        // fallback flat
+        PRODUCT_CATEGORIES.forEach(function(c) {
+          html += '<div class="custom-dropdown-option' + (c === selected ? ' selected' : '') + '" onclick="selectDropdownOption(\'' + id + '\', \'' + esc(c) + '\', \'' + esc(c) + '\')">' + esc(c) + '</div>';
+        });
+      }
+      html += '</div></div>';
+      return html;
+    }
+
+    function toggleDropdown(id) {
+      const menu = document.getElementById('dd-menu-' + id);
+      const trigger = document.getElementById('dd-trigger-' + id);
+      if (activeDropdown && activeDropdown !== id) {
+        const prevMenu = document.getElementById('dd-menu-' + activeDropdown);
+        const prevTrigger = document.getElementById('dd-trigger-' + activeDropdown);
+        if (prevMenu) prevMenu.classList.remove('open');
+        if (prevTrigger) prevTrigger.classList.remove('open');
+      }
+      const isOpen = menu.classList.contains('open');
+      menu.classList.toggle('open');
+      trigger.classList.toggle('open');
+      activeDropdown = isOpen ? null : id;
+    }
+
+    function selectDropdownOption(id, value, label) {
+      document.getElementById(id).value = value;
+      document.getElementById('dd-value-' + id).textContent = label;
+      // 更新选中样式
+      const menu = document.getElementById('dd-menu-' + id);
+      const options = menu.querySelectorAll('.custom-dropdown-option, .custom-dropdown-placeholder');
+      options.forEach(function(opt) {
+        opt.classList.remove('selected');
+      });
+      event.target.classList.add('selected');
+      // 关闭下拉
+      menu.classList.remove('open');
+      document.getElementById('dd-trigger-' + id).classList.remove('open');
+      activeDropdown = null;
+    }
+
+    // 点击外部关闭下拉
+    document.addEventListener('click', function(e) {
+      if (activeDropdown && !e.target.closest('.custom-dropdown')) {
+        const menu = document.getElementById('dd-menu-' + activeDropdown);
+        const trigger = document.getElementById('dd-trigger-' + activeDropdown);
+        if (menu) menu.classList.remove('open');
+        if (trigger) trigger.classList.remove('open');
+        activeDropdown = null;
+      }
+    });
 
     const SOURCE_LINK_META = {
       github: { label: 'GitHub', placeholder: 'https://github.com/...' },
@@ -1333,12 +1481,13 @@
     }
 
     function showAddProduct() {
+      currentImages = [];
       const form = document.getElementById('productForm');
       form.style.display = 'block';
       form.innerHTML = '<h3>添加商品</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
         '<div><label>商品名称 *</label><input id="pf-name" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：狸猫社区源码" /></div>' +
-        '<div><label>分类</label><input id="pf-category" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：小程序、APP、网站" /></div>' +
+        '<div><label>分类</label>' + productCategoryDropdown('') + '</div>' +
         '<div><label>商品类型</label><select id="pf-type" style="width:100%;padding:8px;margin-top:4px;"><option value="source">源码</option><option value="custom">定制开发</option></select></div>' +
         '<div><label>售价 *</label><input id="pf-price" type="number" step="0.01" style="width:100%;padding:8px;margin-top:4px;" placeholder="99.00" /></div>' +
         '<div><label>原价</label><input id="pf-oprice" type="number" step="0.01" style="width:100%;padding:8px;margin-top:4px;" placeholder="199.00" /></div>' +
@@ -1346,6 +1495,8 @@
         '<div><label>下载地址</label><input id="pf-download" style="width:100%;padding:8px;margin-top:4px;" placeholder="https://" /></div>' +
         '<div><label>排序</label><input id="pf-sort" type="number" style="width:100%;padding:8px;margin-top:4px;" value="0" /></div>' +
         '</div>' +
+        '<div class="link-group" style="margin-top:12px;"><label>商品图片</label><div id="pf-image-preview" class="image-preview"></div>' +
+        '<label class="upload-btn">添加图片 <input type="file" multiple accept="image/*" onchange="uploadImages(event,\'pf-image-preview\')" /></label></div>' +
         '<div style="margin-top:12px;"><label>描述</label><textarea id="pf-desc" rows="3" style="width:100%;padding:8px;margin-top:4px;" placeholder="商品描述"></textarea></div>' +
         '<div style="margin-top:12px;"><label>标签（逗号分隔）</label><input id="pf-tags" style="width:100%;padding:8px;margin-top:4px;" placeholder="如：Vue,Node.js,MySQL" /></div>' +
         '<div style="margin-top:12px;"><button class="btn btn-primary" onclick="saveNewProduct()">保存</button> <button class="btn" onclick="document.getElementById(\'productForm\').style.display=\'none\'">取消</button></div>';
@@ -1370,6 +1521,7 @@
             demo_url: document.getElementById('pf-demo').value || null,
             download_url: document.getElementById('pf-download').value || null,
             sort_order: parseInt(document.getElementById('pf-sort').value) || 0,
+            images: currentImages,
             tags
           })
         });
@@ -1382,12 +1534,13 @@
       const data = await api('/products/' + id);
       if (!data.success) { alert('获取失败'); return; }
       const p = data.product;
+      currentImages = p.images || [];
       const form = document.getElementById('productForm');
       form.style.display = 'block';
       form.innerHTML = '<h3>编辑商品 - ' + esc(p.name) + '</h3>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
         '<div><label>商品名称</label><input id="pf-name" value="' + esc(p.name) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
-        '<div><label>分类</label><input id="pf-category" value="' + esc(p.category) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
+        '<div><label>分类</label>' + productCategoryDropdown(p.category || '') + '</div>' +
         '<div><label>商品类型</label><select id="pf-type" style="width:100%;padding:8px;margin-top:4px;"><option value="source"' + (p.product_type === 'source' ? ' selected' : '') + '>源码</option><option value="custom"' + (p.product_type === 'custom' ? ' selected' : '') + '>定制开发</option></select></div>' +
         '<div><label>售价</label><input id="pf-price" type="number" step="0.01" value="' + p.price + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
         '<div><label>原价</label><input id="pf-oprice" type="number" step="0.01" value="' + (p.original_price || '') + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
@@ -1395,6 +1548,9 @@
         '<div><label>下载地址</label><input id="pf-download" value="' + esc(p.download_url || '') + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
         '<div><label>排序</label><input id="pf-sort" type="number" value="' + (p.sort_order || 0) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
         '</div>' +
+        '<div class="link-group" style="margin-top:12px;"><label>商品图片</label><div id="pf-image-preview" class="image-preview">' +
+        currentImages.map((u, i) => '<div class="img-item"><img src="' + u + '" /><button class="remove-img" onclick="removeImage(\'pf-image-preview\',' + i + ')">×</button></div>').join('') +
+        '</div><label class="upload-btn">添加图片 <input type="file" multiple accept="image/*" onchange="uploadImages(event,\'pf-image-preview\')" /></label></div>' +
         '<div style="margin-top:12px;"><label>描述</label><textarea id="pf-desc" rows="3" style="width:100%;padding:8px;margin-top:4px;">' + esc(p.description || '') + '</textarea></div>' +
         '<div style="margin-top:12px;"><label>标签（逗号分隔）</label><input id="pf-tags" value="' + esc((p.tags || []).join(', ')) + '" style="width:100%;padding:8px;margin-top:4px;" /></div>' +
         '<div style="margin-top:12px;"><button class="btn btn-primary" onclick="updateProduct(' + id + ')">更新</button> <button class="btn" onclick="document.getElementById(\'productForm\').style.display=\'none\'">取消</button></div>';
@@ -1417,6 +1573,7 @@
             demo_url: document.getElementById('pf-demo').value || null,
             download_url: document.getElementById('pf-download').value || null,
             sort_order: parseInt(document.getElementById('pf-sort').value) || 0,
+            images: currentImages,
             tags
           })
         });

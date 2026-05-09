@@ -6,15 +6,44 @@ const { authMiddleware } = require('../middleware');
 const router = express.Router();
 
 let _alipaySdk = null;
+
+function normalizePem(value) {
+  if (!value) return '';
+  return value
+    .replace(/^"(.*)"$/s, '$1')
+    .replace(/\\n/g, '\n')
+    .trim();
+}
+
+function getPaymentEnv() {
+  return {
+    appId: (process.env.ALIPAY_APP_ID || '').trim(),
+    privateKey: normalizePem(process.env.ALIPAY_PRIVATE_KEY || ''),
+    alipayPublicKey: normalizePem(process.env.ALIPAY_PUBLIC_KEY || ''),
+    gateway: (process.env.ALIPAY_GATEWAY || 'https://openapi.alipay.com/gateway.do').trim(),
+    notifyUrl: (process.env.ALIPAY_NOTIFY_URL || '').trim(),
+    returnUrl: (process.env.ALIPAY_RETURN_URL || '').trim()
+  };
+}
+
+function getMissingPaymentConfig(payMethod) {
+  const env = getPaymentEnv();
+  const missing = [];
+  if (!env.appId) missing.push('ALIPAY_APP_ID');
+  if (!env.privateKey) missing.push('ALIPAY_PRIVATE_KEY');
+  if (!env.alipayPublicKey) missing.push('ALIPAY_PUBLIC_KEY');
+  return missing;
+}
+
 function getAlipaySdk() {
   if (!_alipaySdk) {
-    const appId = process.env.ALIPAY_APP_ID;
+    const { appId, privateKey, alipayPublicKey, gateway } = getPaymentEnv();
     if (!appId) throw new Error('支付宝未配置，请在 .env 中设置 ALIPAY_APP_ID');
     _alipaySdk = new AlipaySdk({
       appId,
-      privateKey: process.env.ALIPAY_PRIVATE_KEY || '',
-      alipayPublicKey: process.env.ALIPAY_PUBLIC_KEY || '',
-      gateway: process.env.ALIPAY_GATEWAY || 'https://openapi.alipay.com/gateway.do',
+      privateKey,
+      alipayPublicKey,
+      gateway,
       signType: 'RSA2',
       charset: 'utf-8',
       timeout: 30000
@@ -22,9 +51,6 @@ function getAlipaySdk() {
   }
   return _alipaySdk;
 }
-
-const ALIPAY_NOTIFY_URL = process.env.ALIPAY_NOTIFY_URL || '';
-const ALIPAY_RETURN_URL = process.env.ALIPAY_RETURN_URL || '';
 
 function generateOrderNo() {
   const now = new Date();
@@ -42,6 +68,17 @@ router.post('/create', authMiddleware, async (req, res) => {
   try {
     const { productId, payMethod } = req.body;
     if (!productId) return res.status(400).json({ success: false, message: '缺少商品ID' });
+    if (!['alipay_qr', 'alipay_h5'].includes(payMethod)) {
+      return res.status(400).json({ success: false, message: '不支持的支付方式' });
+    }
+
+    const missingConfig = getMissingPaymentConfig(payMethod);
+    if (missingConfig.length > 0) {
+      return res.status(500).json({
+        success: false,
+        message: `支付宝配置不完整：${missingConfig.join(', ')}`
+      });
+    }
 
     const [products] = await pool.query(
       'SELECT id, name, price, product_type FROM products WHERE id = ? AND is_active = 1',
@@ -74,29 +111,34 @@ router.post('/create', authMiddleware, async (req, res) => {
 
     const productName = product.name.substring(0, 60);
     const amount = parseFloat(product.price).toFixed(2);
+    const { notifyUrl, returnUrl } = getPaymentEnv();
 
     if (payMethod === 'alipay_h5') {
-      const result = await getAlipaySdk().pageExec('alipay.trade.wap.pay', {
+      const params = {
         method: 'GET',
         bizContent: {
           out_trade_no: orderNo,
           total_amount: amount,
           subject: productName,
           product_code: 'QUICK_WAP_WAY',
-        },
-        notify_url: ALIPAY_NOTIFY_URL,
-        return_url: ALIPAY_RETURN_URL,
-      });
+        }
+      };
+      if (notifyUrl) params.notify_url = notifyUrl;
+      if (returnUrl) params.return_url = returnUrl;
+
+      const result = await getAlipaySdk().pageExec('alipay.trade.wap.pay', params);
       return res.json({ success: true, payUrl: result, orderNo, amount });
     } else {
-      const result = await getAlipaySdk().exec('alipay.trade.precreate', {
+      const params = {
         bizContent: {
           out_trade_no: orderNo,
           total_amount: amount,
           subject: productName,
-        },
-        notify_url: ALIPAY_NOTIFY_URL,
-      });
+        }
+      };
+      if (notifyUrl) params.notify_url = notifyUrl;
+
+      const result = await getAlipaySdk().exec('alipay.trade.precreate', params);
       if (result.qrCode) {
         return res.json({ success: true, qrCode: result.qrCode, orderNo, amount });
       } else {
@@ -123,11 +165,11 @@ router.post('/notify', express.urlencoded({ extended: false }), async (req, res)
     const tradeNo = params.trade_no;
 
     if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
-      const [orders] = await pool.query('SELECT id, status FROM orders WHERE order_no = ?', [orderNo]);
+      const [orders] = await pool.query('SELECT id, status, pay_method FROM orders WHERE order_no = ?', [orderNo]);
       if (orders.length > 0 && orders[0].status === 'pending') {
         await pool.query(
           'UPDATE orders SET status = ?, trade_no = ?, pay_method = ?, paid_at = NOW() WHERE order_no = ? AND status = ?',
-          ['paid', tradeNo, 'alipay_qr', orderNo, 'pending']
+          ['paid', tradeNo, orders[0].pay_method || 'alipay_qr', orderNo, 'pending']
         );
       }
     }
@@ -139,6 +181,40 @@ router.post('/notify', express.urlencoded({ extended: false }), async (req, res)
   }
 });
 
+async function syncOrderStatusFromAlipay(order) {
+  if (!order || order.status !== 'pending') return order;
+
+  const missingConfig = getMissingPaymentConfig(order.pay_method === 'alipay_h5' ? 'alipay_h5' : 'alipay_qr');
+  if (missingConfig.length > 0) return order;
+
+  try {
+    const result = await getAlipaySdk().exec('alipay.trade.query', {
+      bizContent: {
+        out_trade_no: order.order_no
+      }
+    });
+
+    const tradeStatus = result.tradeStatus || result.trade_status;
+    const tradeNo = result.tradeNo || result.trade_no || null;
+    if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
+      await pool.query(
+        'UPDATE orders SET status = ?, trade_no = ?, paid_at = COALESCE(paid_at, NOW()) WHERE order_no = ? AND status = ?',
+        ['paid', tradeNo, order.order_no, 'pending']
+      );
+      return {
+        ...order,
+        status: 'paid',
+        trade_no: tradeNo,
+        paid_at: order.paid_at || new Date()
+      };
+    }
+  } catch (err) {
+    console.error('支付宝主动查单失败:', err.message || err);
+  }
+
+  return order;
+}
+
 router.get('/status/:orderNo', authMiddleware, async (req, res) => {
   try {
     const [orders] = await pool.query(
@@ -146,7 +222,8 @@ router.get('/status/:orderNo', authMiddleware, async (req, res) => {
       [req.params.orderNo, req.user.id]
     );
     if (orders.length === 0) return res.status(404).json({ success: false, message: '订单不存在' });
-    res.json({ success: true, order: orders[0] });
+    const order = await syncOrderStatusFromAlipay(orders[0]);
+    res.json({ success: true, order });
   } catch (err) {
     console.error('查询订单状态失败:', err);
     res.status(500).json({ success: false, message: '查询失败' });

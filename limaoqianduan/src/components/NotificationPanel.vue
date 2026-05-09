@@ -17,6 +17,8 @@ const showDropdown = ref(false)
 const loading = ref(false)
 const ws = ref(null)
 const dropdownRef = ref(null)
+const showClearConfirm = ref(false)
+const deleteTargetId = ref(null)
 
 function getToken() {
   return props.token || localStorage.getItem('limao_token') || localStorage.getItem('token') || ''
@@ -88,18 +90,27 @@ async function markAllRead() {
 
 async function deleteNotification(notif, event) {
   event.stopPropagation()
+  deleteTargetId.value = notif.id
+}
+
+async function confirmDeleteOne() {
+  const id = deleteTargetId.value
+  deleteTargetId.value = null
   const token = getToken()
-  if (!token) return
+  if (!token || !id) return
   try {
-    await fetch(`${API_BASE}/notifications/${notif.id}`, {
+    await fetch(`${API_BASE}/notifications/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` }
     })
-    const idx = notifications.value.indexOf(notif)
-    if (idx > -1) {
-      notifications.value.splice(idx, 1)
-      if (notif.is_read === 0) {
-        unreadCount.value = Math.max(0, unreadCount.value - 1)
+    const notif = notifications.value.find(n => n.id === id)
+    if (notif) {
+      const idx = notifications.value.indexOf(notif)
+      if (idx > -1) {
+        notifications.value.splice(idx, 1)
+        if (notif.is_read === 0) {
+          unreadCount.value = Math.max(0, unreadCount.value - 1)
+        }
       }
     }
   } catch (e) {
@@ -107,7 +118,16 @@ async function deleteNotification(notif, event) {
   }
 }
 
+function cancelDeleteOne() {
+  deleteTargetId.value = null
+}
+
 async function clearAllNotifications() {
+  showClearConfirm.value = true
+}
+
+async function confirmClearAll() {
+  showClearConfirm.value = false
   const token = getToken()
   if (!token) return
   try {
@@ -121,6 +141,10 @@ async function clearAllNotifications() {
   } catch (e) {
     console.error('清空通知失败:', e)
   }
+}
+
+function cancelClearAll() {
+  showClearConfirm.value = false
 }
 
 function connectWebSocket() {
@@ -296,6 +320,16 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <div v-if="showClearConfirm" class="clear-confirm-overlay">
+          <div class="clear-confirm-dialog">
+            <div class="clear-confirm-text">确定清空所有通知吗？</div>
+            <div class="clear-confirm-actions">
+              <button class="clear-btn-cancel" @click="cancelClearAll">取消</button>
+              <button class="clear-btn-confirm" @click="confirmClearAll">确定</button>
+            </div>
+          </div>
+        </div>
+
         <div v-if="notifications.length === 0" class="notif-empty">
           <div class="empty-icon-wrapper">
             <div class="empty-icon-bg"></div>
@@ -343,6 +377,15 @@ onUnmounted(() => {
               <button class="notif-delete-btn" @click="deleteNotification(notif, $event)" title="删除通知">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
               </button>
+            </div>
+            <div v-if="deleteTargetId === notif.id" class="delete-confirm-overlay" @click.stop>
+              <div class="delete-confirm-dialog">
+                <div class="delete-confirm-text">确定删除该通知吗？</div>
+                <div class="delete-confirm-actions">
+                  <button class="clear-btn-cancel" @click="cancelDeleteOne">取消</button>
+                  <button class="clear-btn-confirm" @click="confirmDeleteOne">确定</button>
+                </div>
+              </div>
             </div>
             <span class="notif-unread-indicator" v-if="notif.is_read === 0"></span>
           </div>
@@ -776,5 +819,105 @@ onUnmounted(() => {
   background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
   border: 2px solid transparent;
   background-clip: padding-box;
+}
+
+.clear-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 16px;
+}
+
+.clear-confirm-dialog {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 32px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  min-width: 260px;
+}
+
+.clear-confirm-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 22px;
+}
+
+.clear-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.clear-btn-cancel {
+  padding: 8px 28px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.clear-btn-cancel:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5);
+}
+
+.clear-btn-confirm {
+  padding: 8px 28px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.clear-btn-confirm:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px -4px rgba(239, 68, 68, 0.5);
+}
+
+.delete-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 12px;
+}
+
+.delete-confirm-dialog {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 32px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  text-align: center;
+  min-width: 240px;
+}
+
+.delete-confirm-text {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 22px;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 </style>

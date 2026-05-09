@@ -1,5 +1,15 @@
 const express = require('express')
 const router = express.Router()
+const jwt = require('jsonwebtoken')
+const { JWT_SECRET } = require('../config')
+
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers.authorization
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try { req.user = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) } catch {}
+  }
+  next()
+}
 
 let _fetch
 if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function') {
@@ -13,7 +23,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.fetch === 'function')
 
 const { JSDOM } = require('jsdom')
 
-router.post('/search', async (req, res) => {
+router.post('/search', optionalAuth, async (req, res) => {
   const { query, count } = req.body
   if (!query) return res.status(400).json({ success: false, message: '缺少搜索关键词' })
 
@@ -70,7 +80,7 @@ router.post('/search', async (req, res) => {
   }
 })
 
-router.post('/fetch', async (req, res) => {
+router.post('/fetch', optionalAuth, async (req, res) => {
   const { url } = req.body
   if (!url) return res.status(400).json({ success: false, message: '缺少URL参数' })
 

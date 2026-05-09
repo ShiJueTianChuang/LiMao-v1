@@ -62,13 +62,23 @@ router.post('/send-code', async (req, res) => {
 
     try {
       await sendVerificationCode(email, code)
+      console.log(`[验证码] 邮件发送成功，邮箱: ${email}`)
     } catch (mailErr) {
-      await pool.query('DELETE FROM verification_codes WHERE email = ? AND code = ?', [email, code])
-      console.error(`[验证码] ${email} 邮件发送失败:`, mailErr.message)
-      return res.status(500).json({ success: false, message: '邮件发送失败，请稍后重试' })
+      console.error(`[验证码] ❌ 邮件发送失败:`, mailErr)
+      console.error(`[验证码] SMTP配置检查:`)
+      console.error(`[验证码] - SMTP_HOST: ${process.env.SMTP_HOST || process.env.MAIL_HOST}`)
+      console.error(`[验证码] - SMTP_USER: ${process.env.SMTP_USER || process.env.MAIL_USER}`)
+      console.error(`[验证码] - SMTP_PORT: ${process.env.SMTP_PORT || process.env.MAIL_PORT}`)
+      return res.status(500).json({ 
+        success: false, 
+        message: '邮件发送失败，请检查邮箱配置是否正确' 
+      })
     }
 
-    res.json({ success: true, message: '验证码已发送至邮箱' })
+    res.json({
+      success: true,
+      message: '验证码已发送至邮箱，请查收'
+    })
   } catch (err) {
     console.error('发送验证码失败:', err)
     res.status(500).json({ success: false, message: '发送验证码失败，请稍后重试' })
@@ -84,12 +94,13 @@ router.post('/register', async (req, res) => {
     if (password.length < 6) return res.status(400).json({ success: false, message: '密码长度不能少于6位' })
     if (password.length > 128) return res.status(400).json({ success: false, message: '密码长度不能超过128位' })
     if (email.length > 255) return res.status(400).json({ success: false, message: '邮箱格式不正确' })
-
-    const [existing] = await conn.query('SELECT id FROM users WHERE email = ?', [email])
-    if (existing.length > 0) return res.status(400).json({ success: false, message: '该邮箱已注册' })
+    if (!/^\d{4,6}$/.test(code)) return res.status(400).json({ success: false, message: '验证码格式不正确' })
 
     const codeRows = await verifyCode(email, code)
     if (codeRows.length === 0) return res.status(400).json({ success: false, message: '验证码无效或已过期' })
+
+    const [existing] = await conn.query('SELECT id FROM users WHERE email = ?', [email])
+    if (existing.length > 0) return res.status(400).json({ success: false, message: '该邮箱已注册' })
 
     const hashedPassword = await bcrypt.hash(password, 10)
     const adjectives = ['快乐的', '聪明的', '勇敢的', '可爱的', '温柔的', '阳光的', '淡定的', '酷酷的', '优雅的', '灵动的']
@@ -99,7 +110,7 @@ router.post('/register', async (req, res) => {
     const [result] = await conn.query('INSERT INTO users (email, password, nickname) VALUES (?, ?, ?)', [email, hashedPassword, randomNickname])
     const userId = result.insertId
     await conn.query('INSERT INTO user_agreements (user_id) VALUES (?)', [userId])
-    await conn.query('UPDATE verification_codes SET used = 1 WHERE id = ?', [codeRows[0].id])
+    await markCodeUsed(codeRows[0].id)
     await conn.commit()
 
     res.json({ success: true, message: '注册成功' })
@@ -115,10 +126,13 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password, code } = req.body
-    if (!email) return res.status(400).json({ success: false, message: '请提供邮箱地址' })
+    if (!email) return res.status(400).json({ success: false, message: '请提供邮箱地址或用户名' })
 
-    const [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email])
-    if (users.length === 0) return res.status(400).json({ success: false, message: '该邮箱未注册' })
+    let [users] = await pool.query('SELECT * FROM users WHERE email = ?', [email])
+    if (users.length === 0) {
+      [users] = await pool.query('SELECT * FROM users WHERE nickname = ?', [email])
+    }
+    if (users.length === 0) return res.status(400).json({ success: false, message: '该账号未注册' })
 
     const user = users[0]
 

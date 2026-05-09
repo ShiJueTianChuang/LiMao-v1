@@ -8,6 +8,7 @@
       :userAvatar="userAvatar"
       :searchQuery="searchQuery"
       :quickSearchResults="quickSearchResults"
+      :productSidebarOpen="showProductSidebar"
       @navigate="currentPage = $event"
       @openAuth="openAuth"
       @logout="handleLogout"
@@ -28,14 +29,18 @@
       </template>
     </NavBar>
 
-    <ProductSidebar
-      v-if="showProductSidebar"
-      :projects="productList"
-      :activeCategory="activeCategory"
-      @close="showProductSidebar = false"
-      @selectCategory="handleCategoryChange"
-      @selectProject="handleBuy"
-    />
+    <Transition name="product-sidebar-transition">
+      <ProductSidebar
+        v-if="showProductSidebar"
+        :projects="productList"
+        :activeCategory="productActiveCategory"
+        :categoryGroups="productCategoryGroups"
+        :categoryIcons="PRODUCT_CATEGORY_ICONS"
+        @close="showProductSidebar = false"
+        @selectCategory="handleProductCategoryChange"
+        @selectProject="handleBuy"
+      />
+    </Transition>
 
     <template v-if="currentPage === 'forum'">
       <ForumPage
@@ -100,7 +105,12 @@
       @download="handleDownload"
     />
 
-    <BaseModal :show="showPayModal" modal-class="pay-modal" @close="closePayModal">
+    <BaseModal
+      :show="showPayModal"
+      modal-class="pay-modal"
+      :overlay-style="payModalOverlayStyle"
+      @close="closePayModal"
+    >
       <div class="modal-header">
         <h2>购买商品</h2>
       </div>
@@ -160,7 +170,7 @@
         <div v-else-if="payStatus === 'error'" class="pay-result error">
           <svg viewBox="0 0 24 24" fill="none" stroke="#f53f3f" stroke-width="2" width="48" height="48"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <p>支付失败</p>
-          <p class="pay-result-desc">请稍后重试</p>
+          <p class="pay-result-desc">{{ payErrorMessage }}</p>
         </div>
       </div>
     </BaseModal>
@@ -202,7 +212,7 @@ import BaseModal from './BaseModal.vue'
 import ForumPage from './ForumPage.vue'
 import AiChatPage from './AiChatPage.vue'
 import NotificationPanel from './NotificationPanel.vue'
-import { getImageUrl, CATEGORIES } from '../constants'
+import { getImageUrl, CATEGORIES, PRODUCT_CATEGORY_ICONS } from '../constants'
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
@@ -218,6 +228,7 @@ const showProductSidebar = ref(false)
 
 const searchQuery = ref('')
 const activeCategory = ref('all')
+const productActiveCategory = ref('all')
 const filteredProjects = ref([])
 const showProfileEdit = ref(false)
 const uploadingAvatar = ref(false)
@@ -289,6 +300,11 @@ function handleSearch() {
 function handleCategoryChange(key) {
   activeCategory.value = key
   fetchProjects(key)
+}
+
+function handleProductCategoryChange(key) {
+  productActiveCategory.value = key
+  fetchProducts(key)
 }
 
 function getAvailableLinks(links) {
@@ -438,6 +454,10 @@ const payOrderNo = ref('')
 const payAmount = ref('')
 const payPolling = ref(null)
 const payStatus = ref('idle')
+const payErrorMessage = ref('请稍后重试')
+const payModalOverlayStyle = computed(() => ({
+  zIndex: showProductSidebar.value ? 13010 : 200
+}))
 
 function handleBuy(project) {
   if (!isLoggedIn.value) {
@@ -448,6 +468,7 @@ function handleBuy(project) {
   payQrCode.value = ''
   payOrderNo.value = ''
   payAmount.value = ''
+  payErrorMessage.value = '请稍后重试'
   payStatus.value = 'idle'
   showPayModal.value = true
 }
@@ -465,6 +486,7 @@ async function startPay(payMethod) {
       return
     }
     if (!res.data.success) {
+      payErrorMessage.value = res.data.message || '创建订单失败'
       payStatus.value = 'error'
       return
     }
@@ -481,6 +503,7 @@ async function startPay(payMethod) {
     }
   } catch (e) {
     console.error('创建支付失败', e)
+    payErrorMessage.value = e.response?.data?.message || '创建订单失败，请检查支付配置'
     payStatus.value = 'error'
   }
 }
@@ -594,18 +617,21 @@ async function fetchProjects(category = 'all') {
 
 const productList = ref([])
 const productListLoading = ref(false)
+const productCategoryGroups = ref(null)
 
-async function fetchProducts() {
+async function fetchProducts(category = 'all') {
   productListLoading.value = true
   try {
-    const res = await axios.get(`${API_BASE}/products`, { params: { pageSize: 50 } })
+    const params = { pageSize: 50 }
+    if (category && category !== 'all') params.category = category
+    const res = await axios.get(`${API_BASE}/products`, { params })
     if (res.data.success) {
       productList.value = (res.data.products || []).map(p => ({
         id: p.id,
         name: p.name,
         desc: p.description || '',
         category: p.category,
-        tags: p.tags || [p.category],
+        tags: (p.tags && p.tags.length) ? p.tags : [p.category],
         price: p.price ? parseFloat(p.price) : null,
         originalPrice: p.original_price ? parseFloat(p.original_price) : null,
         productType: p.product_type,
@@ -621,6 +647,25 @@ async function fetchProducts() {
     console.error('获取产品列表失败', err)
   } finally {
     productListLoading.value = false
+  }
+}
+
+async function fetchProductCategories() {
+  try {
+    const res = await axios.get(`${API_BASE}/products/categories`)
+    if (res.data && res.data.success) {
+      const cats = res.data.categories || []
+      // 后端已返回分组结构时直接使用
+      if (cats.length > 0 && cats[0].label) {
+        productCategoryGroups.value = cats
+      } else if (Array.isArray(cats) && cats.length > 0) {
+        // 兼容老格式：数组 of strings
+        const rest = cats.filter(c => c !== '全部')
+        productCategoryGroups.value = [{ label: '全部', children: ['全部'] }, { label: '分类', children: rest }]
+      }
+    }
+  } catch (err) {
+    console.error('获取产品分类失败', err)
   }
 }
 
@@ -663,6 +708,7 @@ onMounted(() => {
   }
   fetchProjects()
   fetchProducts()
+  fetchProductCategories()
   fetchStats()
 })
 </script>
@@ -697,6 +743,15 @@ onMounted(() => {
 .pay-result.success p { color: #00b42a; }
 .pay-result.error p { color: #f53f3f; }
 .pay-result-desc { font-size: 13px !important; font-weight: 400 !important; color: #86909c !important; margin-top: 4px !important; }
+.product-sidebar-transition-enter-active,
+.product-sidebar-transition-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.product-sidebar-transition-enter-from,
+.product-sidebar-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-14px);
+}
 
 .home-page {
   min-height: 100vh;

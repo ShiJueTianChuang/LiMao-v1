@@ -1,6 +1,12 @@
 <template>
   <transition name="modal">
-    <div v-if="show" class="modal-overlay" @mousedown="onOverlayMouseDown" @click="onOverlayClick">
+    <div
+      v-if="show"
+      class="modal-overlay"
+      :style="overlayStyle"
+      @mousedown="onOverlayMouseDown"
+      @click="onOverlayClick"
+    >
       <div :class="['modal-card', modalClass]">
         <button class="modal-close" @click="$emit('close')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
@@ -18,7 +24,8 @@ import { ref } from 'vue'
 
 defineProps({
   show: Boolean,
-  modalClass: { type: String, default: '' }
+  modalClass: { type: String, default: '' },
+  overlayStyle: { type: Object, default: () => ({}) }
 })
 
 const emit = defineEmits(['close'])

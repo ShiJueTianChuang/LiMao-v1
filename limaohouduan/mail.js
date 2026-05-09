@@ -1,17 +1,23 @@
 require('dotenv').config();
 const nodemailer = require('nodemailer');
 
+const MAIL_USER = process.env.SMTP_USER || process.env.MAIL_USER || '';
+const MAIL_PASS = process.env.SMTP_PASS || process.env.MAIL_PASS || '';
+const MAIL_HOST = process.env.SMTP_HOST || process.env.MAIL_HOST || 'smtp.163.com';
+const MAIL_PORT = parseInt(process.env.SMTP_PORT || process.env.MAIL_PORT) || 465;
+const MAIL_FROM = process.env.SMTP_FROM || MAIL_USER;
+
 function createTransporter() {
   return nodemailer.createTransport({
-    host: process.env.MAIL_HOST || 'smtp.163.com',
-    port: parseInt(process.env.MAIL_PORT) || 465,
+    host: MAIL_HOST,
+    port: MAIL_PORT,
     secure: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
     auth: {
-      user: process.env.MAIL_USER,
-      pass: process.env.MAIL_PASS
+      user: MAIL_USER,
+      pass: MAIL_PASS
     }
   });
 }
@@ -38,7 +44,7 @@ async function sendVerificationCode(toEmail, code) {
   `;
 
   const mailOptions = {
-    from: `"LIMAO SYSTEM" <${process.env.MAIL_USER}>`,
+    from: MAIL_FROM,
     to: toEmail,
     subject: '【LIMAO SYSTEM】身份验证码',
     html

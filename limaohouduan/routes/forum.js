@@ -22,6 +22,22 @@ const {
 
 const router = express.Router();
 
+const FORUM_CATEGORY_ALIASES = {
+  '小程序': ['微信小程序', '支付宝小程序', '百度小程序', '抖音小程序', '小程序'],
+  '安卓': ['APP：安卓', '安卓'],
+  '鸿蒙': ['APP：鸿蒙', '鸿蒙'],
+  '苹果': ['APP：苹果', '苹果'],
+  '网址': ['网站：网页', '网址', '网站'],
+  '网站': ['网站：网页', '网址', '网站'],
+  'AI': ['AI'],
+  '文档': ['文档', '使用说明', '使用文档', '教程', '帮助文档']
+};
+
+function expandForumCategory(category) {
+  if (!category || category === 'all' || category === '全部') return null;
+  return FORUM_CATEGORY_ALIASES[category] || [category];
+}
+
 const ipSearcher = new IP2Region();
 
 function getIpRegion(ip) {
@@ -155,8 +171,15 @@ router.get('/posts', asyncHandler(async (req, res) => {
   }
 
   if (category && category !== '全部') {
-    whereClauses.push('p.category = ?');
-    params.push(category);
+    const categoryList = expandForumCategory(category);
+    if (categoryList && categoryList.length === 1) {
+      whereClauses.push('p.category = ?');
+      params.push(categoryList[0]);
+    } else if (categoryList && categoryList.length > 1) {
+      const placeholders = categoryList.map(() => '?').join(',');
+      whereClauses.push(`p.category IN (${placeholders})`);
+      params.push(...categoryList);
+    }
   }
   if (search && search.trim()) {
     const escapedSearch = escapeLikePattern(search.trim())
@@ -991,8 +1014,15 @@ router.get('/projects', asyncHandler(async (req, res) => {
   let whereClause = 'p.is_featured = 1 AND p.is_deleted = 0';
 
   if (category && category !== 'all') {
-    whereClause += ' AND p.category = ?';
-    params.push(category);
+    const categoryList = expandForumCategory(category);
+    if (categoryList && categoryList.length === 1) {
+      whereClause += ' AND p.category = ?';
+      params.push(categoryList[0]);
+    } else if (categoryList && categoryList.length > 1) {
+      const placeholders = categoryList.map(() => '?').join(',');
+      whereClause += ` AND p.category IN (${placeholders})`;
+      params.push(...categoryList);
+    }
   }
 
   const [projects] = await pool.query(

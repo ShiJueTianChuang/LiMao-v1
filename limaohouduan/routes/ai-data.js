@@ -5,7 +5,11 @@ const { pool } = require('../db')
 const { authMiddleware, adminMiddleware } = require('../middleware')
 const { createNotification } = require('./notifications')
 
-const ENCRYPTION_KEY_RAW = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || 'default-encryption-key-change-me'
+const ENCRYPTION_KEY_RAW = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET
+if (!ENCRYPTION_KEY_RAW) {
+  console.error('错误: 环境变量 ENCRYPTION_KEY 或 JWT_SECRET 未设置，无法加密用户密钥')
+  process.exit(1)
+}
 const IV_LENGTH = 16
 
 function deriveKey(raw) {

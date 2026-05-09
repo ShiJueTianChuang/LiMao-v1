@@ -59,6 +59,8 @@
             <input v-model="confirmPassword" type="password" placeholder="请确认密码" class="input-field"/>
           </div>
 
+
+
           <div v-if="mode === 'register'" class="input-group code-group">
             <div class="input-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -226,7 +228,7 @@ async function sendCode() {
   try {
     const res = await axios.post(`${props.apiBase}/send-code`, { email: email.value.trim() })
     if (res.data.success) {
-      emit('toast', '验证码已发送至邮箱', 'success')
+      emit('toast', '验证码已发送至邮箱，请查收', 'success')
       countdown.value = 60
       const timer = setInterval(() => { countdown.value--; if (countdown.value <= 0) clearInterval(timer) }, 1000)
     } else { emit('toast', res.data.message || '发送失败', 'error') }
